@@ -1,4 +1,4 @@
-// 1. CONFIG
+// 1. КОНФІГУРАЦІЯ
 const firebaseConfig = {
   apiKey: "AIzaSyD7F2lrec5XWyMWG7J0uW6IhEKD-LJ4jRY",
   authDomain: "bearscasino-bcded.firebaseapp.com",
@@ -20,12 +20,12 @@ const myName = tg.initDataUnsafe?.user?.first_name || "Гість";
 let s = { b: 5000, x: 0, r: 1, name: myName, p: null, inv: [] };
 
 const PETS_DB = {
-    wood: [{n:'Песик', s:'🐶', r:'Common', m:1.2, c:'#94a3b8'}, {n:'Котик', s:'🐱', r:'Common', m:1.2, c:'#94a3b8'}],
-    iron: [{n:'Єнот', s:'🦝', r:'Rare', m:1.8, c:'#3b82f6'}, {n:'Лисиця', s:'🦊', r:'Rare', m:2.0, c:'#3b82f6'}],
-    diam: [{n:'Шарк', s:'🦈', r:'Epic', m:3.5, c:'#a855f7'}, {n:'Ведмідь', s:'🐻', r:'Legend', m:5.5, c:'#f43f5e'}]
+    wood: {n:'Песик', s:'🐶', r:'Common', m:1.2, c:'#94a3b8', p:2000},
+    iron: {n:'Єнот', s:'🦝', r:'Rare', m:1.8, c:'#3b82f6', p:10000},
+    diam: {n:'Ведмідь', s:'🐻', r:'Legend', m:5.5, c:'#f43f5e', p:50000}
 };
 
-// 2. DB SYNC
+// 2. БАЗА ДАНИХ
 db.ref('players/' + myId).on('value', snap => {
     if(snap.exists()){ 
         let d = snap.val();
@@ -52,7 +52,7 @@ function ren() {
     }
 }
 
-// 3. ІГРИ (ОНОВЛЕНО)
+// 3. ІГРИ (ВИПРАВЛЕНО КУБИК ТА КОЛЕСО)
 window.updUI = () => {
     let g = document.getElementById('g-sel').value;
     document.getElementById('ui-dice').style.display = (g==='dice')?'block':'none';
@@ -74,28 +74,21 @@ window.play = () => {
     document.getElementById('g-stat').innerHTML = "Граємо...";
 
     if(g === 'f50') {
-        setTimeout(() => {
-            let win = Math.random() > 0.5;
-            res(win, bt, 1.45, win ? "Ви вгадали сторінку!" : "Не пощастило...");
-        }, 500);
+        let win = Math.random() > 0.5;
+        setTimeout(() => res(win, bt, 1.45, win ? "Випав Орел!" : "Випала Решка..."), 400);
     }
     else if(g === 'dice') {
         let r = Math.floor(Math.random()*6)+1;
-        setTimeout(() => {
-            let win = (r === selN_val);
-            res(win, bt, 1.45, `Випало 🎲 ${r}. ${win ? 'Перемога!' : 'Спробуй ще!'}`);
-        }, 800);
+        setTimeout(() => res(r === selN_val, bt, 1.45, `Випало 🎲 ${r}`), 600);
     }
     else if(g === 'wheel') {
-        let w = document.getElementById('w-obj'); 
-        let deg = 1800 + Math.floor(Math.random()*360);
+        let w = document.getElementById('w-obj'); let deg = 1800 + Math.floor(Math.random()*360);
         w.style.transform = `rotate(${deg}deg)`;
         setTimeout(() => {
             let p = Math.random()*100;
             let m = (p<45)?0 : (p<80)?1.25 : (p<95)?1.5 : 1.75;
-            let txt = (m===0)?"🔴 Випало 0x":"🟢 Випало 1.25x";
-            if(m===1.5) txt = "🔵 Випало 1.5x"; if(m===1.75) txt = "🟡 Випало 1.75x";
-            res(m>0, bt, m, txt);
+            let txt = (m===0)?"🔴 0x" : (m===1.25)?"🟢 1.25x" : (m===1.5)?"🔵 1.5x" : "🟡 1.75x";
+            res(m>0, bt, m, `Результат: ${txt}`);
         }, 3000);
     }
     else if(g === 'bj') startBJ(bt);
@@ -107,15 +100,36 @@ function res(win, bt, m, msg) {
         let bon = s.p ? (s.p.m + s.p.lvl*0.1) : 1;
         let winSum = Math.floor((bt * m - bt) * bon);
         s.b += winSum; s.x += Math.floor(bt/4);
-        stat.innerHTML = `<div style="font-size:12px; opacity:0.8">${msg}</div><span style="color:var(--success)">+${winSum} BB</span>`;
+        stat.innerHTML = `<div style="font-size:12px">${msg}</div><span style="color:var(--success)">+${winSum} BB</span>`;
     } else {
         s.b -= bt;
-        stat.innerHTML = `<div style="font-size:12px; opacity:0.8">${msg}</div><span style="color:var(--error)">-${bt} BB</span>`;
+        stat.innerHTML = `<div style="font-size:12px">${msg}</div><span style="color:var(--error)">-${bt} BB</span>`;
     }
     save();
 }
 
-// 4. CASES & INV
+// 4. ТАБЛИЦЯ ЛІДЕРІВ (ВИПРАВЛЕНО)
+function loadTop() {
+    db.ref('players').once('value', snap => {
+        let list = [];
+        snap.forEach(child => { list.push(child.val()); });
+        
+        // Сортуємо за балансом (від більшого до меншого)
+        list.sort((a, b) => b.b - a.b);
+        
+        let html = "";
+        list.slice(0, 10).forEach((player, i) => {
+            let color = (i === 0) ? "var(--accent)" : (i < 3 ? "#fff" : "#888");
+            html += `<div style="display:flex; justify-content:space-between; margin-bottom:10px; padding:5px; border-bottom:1px solid rgba(255,255,255,0.05); color:${color}">
+                <span>${i + 1}. ${player.name}</span>
+                <b>${Math.floor(player.b).toLocaleString()} BB</b>
+            </div>`;
+        });
+        document.getElementById('leaderboard').innerHTML = html || "Гравців поки немає";
+    });
+}
+
+// 5. КЕЙСИ ТА ІНВЕНТАР
 window.buy = (t, cost) => {
     if(s.b < cost) return alert("Мало BB!");
     s.b -= cost; save();
@@ -125,17 +139,23 @@ window.buy = (t, cost) => {
     document.getElementById('case-res').textContent = "";
     document.getElementById('case-close').style.display = 'none';
     
-    let pool = [...PETS_DB.wood, ...PETS_DB.iron, ...PETS_DB.diam];
-    let html = ""; for(let i=0; i<45; i++) html += `<div class="case-item" style="border-color:${pool[Math.floor(Math.random()*pool.length)].c}">${pool[Math.floor(Math.random()*pool.length)].s}</div>`;
+    let pool = [PETS_DB.wood, PETS_DB.iron, PETS_DB.diam];
+    let html = ""; for(let i=0; i<45; i++) {
+        let p = pool[Math.floor(Math.random()*pool.length)];
+        html += `<div class="case-item" style="border-color:${p.c}">${p.s}</div>`;
+    }
     scroll.innerHTML = html; scroll.style.transition = "0s"; scroll.style.left = "0px";
 
-    let winPet = { ...(Math.random() > 0.5 ? PETS_DB[t][0] : PETS_DB[t][1]), lvl: 1, id: Date.now(), egg: t };
+    let resPet = (t === 'wood') ? PETS_DB.wood : (t === 'iron' ? PETS_DB.iron : PETS_DB.diam);
+    let winPet = { ...resPet, lvl: 1, id: Date.now(), egg: t };
+
     setTimeout(() => {
         let all = document.querySelectorAll('.case-item');
         all[40].innerHTML = winPet.s; all[40].style.borderColor = winPet.c;
         scroll.style.transition = "5s cubic-bezier(0.1, 0, 0.1, 1)";
         scroll.style.left = `-${40 * 90 - 120}px`;
     }, 100);
+
     setTimeout(() => {
         document.getElementById('case-res').innerHTML = `<span style="color:${winPet.c}">${winPet.n}</span>`;
         document.getElementById('case-close').style.display = "block";
@@ -153,32 +173,32 @@ function renderInv() {
         let isEq = s.p && s.p.id === p.id;
         h += `<div class="shop-item">
             <span>${p.s} <b>${p.n}</b></span>
-            <button class="btn-s" style="background:${isEq?'#444':''}" onclick="equip(${p.id})">${isEq?'АКТИВ':'ВЗЯТИ'}</button>
+            <div style="display:flex; gap:5px">
+                <button class="btn-s" style="background:${isEq?'#444':''}" onclick="equip(${p.id})">${isEq?'ВЗЯТО':'ВЗЯТИ'}</button>
+                <button class="btn-s" style="background:var(--error); font-size:10px" onclick="sellPet(${p.id})">💰</button>
+            </div>
         </div>`;
     });
     list.innerHTML = h;
 }
+
 window.equip = (id) => { let f = s.inv.find(i => i.id === id); if(f) { s.p = f; save(); renderInv(); } };
 
-// 5. TOP & ADMIN
-function loadTop() {
-    db.ref('players').orderByChild('b').limitToLast(10).on('value', snap => {
-        let h = ""; let arr = []; snap.forEach(p => arr.push(p.val()));
-        arr.reverse().forEach((v, i) => h += `<div style="display:flex; justify-content:space-between; margin-bottom:8px"><span>${i+1}. ${v.name}</span><b>${Math.floor(v.b)}</b></div>`);
-        document.getElementById('leaderboard').innerHTML = h;
-    });
-}
-function loadAdmin() {
-    db.ref('players').on('value', snap => {
-        let h = ""; snap.forEach(c => {
-            h += `<div style="font-size:12px; margin-bottom:10px">${c.val().name} <button class="btn-s" onclick="setB('${c.key}')">SET</button></div>`;
-        });
-        document.getElementById('admin-list').innerHTML = h;
-    });
-}
-window.setB = (id) => { let v = prompt("Введіть баланс:"); if(v) db.ref('players/'+id+'/b').set(parseInt(v)); };
+window.sellPet = (id) => {
+    let idx = s.inv.findIndex(p => p.id === id);
+    let p = s.inv[idx];
+    if(s.p && s.p.id === id) return alert("Зніміть пета перед продажем!");
+    
+    let price = Math.floor(PETS_DB[p.egg].p * 0.5);
+    if(confirm(`Продати за ${price} BB?`)) {
+        s.b += price;
+        s.inv.splice(idx, 1);
+        save();
+        renderInv();
+    }
+};
 
-// 6. TABS
+// 6. НАВІГАЦІЯ ТА АДМІН
 window.tab = (t, el) => {
     document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
     document.querySelectorAll('.nav-tab').forEach(n => n.classList.remove('active'));
@@ -189,7 +209,17 @@ window.tab = (t, el) => {
     if(t === 'admin') loadAdmin();
 };
 
-// BJ Logic (Shortened)
+function loadAdmin() {
+    db.ref('players').on('value', snap => {
+        let h = ""; snap.forEach(c => {
+            h += `<div style="font-size:12px; margin-bottom:10px">${c.val().name} <button class="btn-s" onclick="setB('${c.key}')">SET</button></div>`;
+        });
+        document.getElementById('admin-list').innerHTML = h;
+    });
+}
+window.setB = (id) => { let v = prompt("Введіть баланс:"); if(v) db.ref('players/'+id+'/b').set(parseInt(v)); };
+
+// BJ (Коротка логіка)
 function startBJ(bt){ bj={p:[dr(),dr()], d:[dr()], bt}; document.getElementById('bj-ctrl').style.display='flex'; reBJ(); }
 function dr(){ return Math.floor(Math.random()*10)+2; }
 function reBJ(){
@@ -200,7 +230,7 @@ function reBJ(){
 window.bjDo=(a)=>{
     const sum=(x)=>x.reduce((v,z)=>v+z,0);
     if(a==='hit'){ bj.p.push(dr()); reBJ(); }
-    else { while(sum(bj.d)<17) bj.d.push(dr()); reBJ(); let win = sum(bj.d)>21||sum(bj.p)>sum(bj.d); res(win,bj.bt,2, win?"Ви обіграли дилера!":"Дилер переміг"); endBJ(); }
+    else { while(sum(bj.d)<17) bj.d.push(dr()); reBJ(); let win = sum(bj.d)>21||sum(bj.p)>sum(bj.d); res(win,bj.bt,2, win?"Перемога!":"Програш"); endBJ(); }
 };
 function endBJ(){ document.getElementById('bj-ctrl').style.display='none'; }
 
