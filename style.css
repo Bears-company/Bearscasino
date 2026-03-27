@@ -7,53 +7,60 @@
     --text: #c9d1d9;
 }
 
-/* RGB Анімація */
 @keyframes rgb-glow {
-    0% { border-color: #ff4d4d; box-shadow: 0 0 10px rgba(255, 77, 77, 0.2); }
-    33% { border-color: #4dff4d; box-shadow: 0 0 10px rgba(77, 255, 77, 0.2); }
-    66% { border-color: #4d4dff; box-shadow: 0 0 10px rgba(77, 77, 255, 0.2); }
-    100% { border-color: #ff4d4d; box-shadow: 0 0 10px rgba(255, 77, 77, 0.2); }
+    0% { border-color: #ff4d4d; box-shadow: 0 0 8px rgba(255, 77, 77, 0.3); }
+    33% { border-color: #4dff4d; box-shadow: 0 0 8px rgba(77, 255, 77, 0.3); }
+    66% { border-color: #4d4dff; box-shadow: 0 0 8px rgba(77, 77, 255, 0.3); }
+    100% { border-color: #ff4d4d; box-shadow: 0 0 8px rgba(255, 77, 77, 0.3); }
 }
 
-body { margin: 0; font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
-header { padding: 15px; background: var(--glass); display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #30363d; }
+body { margin: 0; font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+header { padding: 12px 15px; background: var(--glass); display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #30363d; }
 
 .bal-card { 
-    background: #161b22; padding: 8px 15px; border-radius: 12px; 
+    background: #161b22; padding: 6px 12px; border-radius: 10px; 
     border: 2px solid var(--accent); font-weight: bold; color: var(--accent);
     animation: rgb-glow 3s linear infinite; 
 }
 
-.container { flex: 1; overflow-y: auto; padding: 15px; padding-bottom: 80px; }
+.container { flex: 1; overflow-y: auto; padding: 12px; padding-bottom: 80px; }
 
 .glass { 
     background: var(--glass); backdrop-filter: blur(10px); border-radius: 16px; 
     padding: 15px; margin-bottom: 15px; border: 2px solid #30363d;
-    animation: rgb-glow 5s linear infinite;
+    animation: rgb-glow 6s linear infinite;
 }
 
 .btn { width: 100%; padding: 12px; border: none; border-radius: 10px; background: var(--accent); color: white; font-weight: bold; cursor: pointer; margin-top: 10px; }
-.btn-s { padding: 6px 12px; border: none; border-radius: 6px; background: #30363d; color: white; cursor: pointer; }
+.btn-s { padding: 6px 12px; border: none; border-radius: 6px; background: #30363d; color: white; cursor: pointer; font-size: 13px; }
 
-nav { position: fixed; bottom: 0; width: 100%; height: 60px; background: var(--glass); display: flex; border-top: 1px solid #30363d; }
+nav { position: fixed; bottom: 0; width: 100%; height: 60px; background: var(--glass); display: flex; border-top: 1px solid #30363d; z-index: 100; }
 .nav-tab { flex: 1; text-align: center; padding: 15px; font-size: 20px; opacity: 0.5; cursor: pointer; }
-.nav-tab.active { opacity: 1; color: var(--accent); border-top: 2px solid var(--accent); }
+.nav-tab.active { opacity: 1; color: var(--accent); border-top: 3px solid var(--accent); }
 
-input, select { width: 100%; padding: 10px; margin: 10px 0; background: #0d1117; border: 1px solid #30363d; color: white; border-radius: 8px; box-sizing: border-box; }
+input, select { width: 100%; padding: 10px; margin: 10px 0; background: #0d1117; border: 1px solid #30363d; color: white; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
 
-.dice-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 10px 0; }
-.n-btn { padding: 10px; border: 1px solid #333; background: #161b22; color: white; border-radius: 5px; }
+.dice-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0; }
+.n-btn { padding: 10px; border: 1px solid #333; background: #161b22; color: white; border-radius: 6px; }
 .n-btn.active { border-color: var(--accent); background: rgba(88, 166, 255, 0.2); }
 
-/* РУЛЕТКА ФІКС */
-.case-roulette { width: 100%; height: 100px; overflow: hidden; position: relative; border: 2px solid var(--accent); border-radius: 10px; background: #111; }
+/* РУЛЕТКА */
+.case-roulette { width: 100%; height: 100px; overflow: hidden; position: relative; border: 2px solid var(--accent); border-radius: 12px; background: #000; }
 .case-item { min-width: 90px; max-width: 90px; height: 100px; display: flex; align-items: center; justify-content: center; font-size: 40px; border-right: 1px solid #222; box-sizing: border-box; }
-#case-scroll { display: flex; position: absolute; left: 0; align-items: center; }
+#case-scroll { display: flex; position: absolute; left: 0; align-items: center; height: 100%; }
 #case-line { position: absolute; left: 50%; top: 0; width: 3px; height: 100%; background: #fff; z-index: 5; transform: translateX(-50%); box-shadow: 0 0 10px #fff; }
 
-/* МОДАЛКА ШАНСІВ ФІКС */
-#odds-modal .glass { max-height: 70vh; overflow-y: auto; width: 90%; }
+/* ФІКС МОДАЛКИ ШАНСІВ */
+#odds-modal .glass { 
+    max-height: 70vh; 
+    overflow-y: auto; 
+    width: 85% !important; 
+    max-width: 320px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+}
 
-.shop-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #222; }
+.shop-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #222; }
 .xp-bar { width: 100%; height: 6px; background: #222; border-radius: 3px; margin: 5px 0; overflow: hidden; }
 .xp-fill { height: 100%; background: var(--accent); transition: 0.5s; }

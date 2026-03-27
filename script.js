@@ -1,4 +1,3 @@
-// CONFIG
 const firebaseConfig = {
     apiKey: "AIzaSyD7F2lrec5XWyMWG7J0uW6IhEKD-LJ4jRY",
     authDomain: "bearscasino-bcded.firebaseapp.com",
@@ -47,14 +46,13 @@ const CASES = {
     ]}
 };
 
-let s = { b: 10, x: 0, r: 1, name: myName, p: null, inv: [], v: 2.3 };
+let s = { b: 10, x: 0, r: 1, name: myName, p: null, inv: [], v: 2.4 };
 
-// SYNC
 db.ref('players/' + myId).on('value', snap => {
     let d = snap.val();
     if(d) {
-        if(!d.v || d.v < 2.3) {
-            s = { b: 10, x: 0, r: 1, name: myName, p: null, inv: [], v: 2.3 };
+        if(!d.v || d.v < 2.4) {
+            s = { b: 10, x: 0, r: 1, name: myName, p: null, inv: [], v: 2.4 };
             db.ref('players/' + myId).set(s);
         } else {
             s = d; if(!s.inv) s.inv = [];
@@ -66,7 +64,7 @@ db.ref('players/' + myId).on('value', snap => {
 function save() { db.ref('players/' + myId).set(s); }
 
 function ren() {
-    document.getElementById('bal-val').innerText = Math.floor(s.b);
+    document.getElementById('bal-val').innerText = Math.floor(s.b).toLocaleString();
     document.getElementById('u-rank').innerText = "РАНГ: " + s.r;
     document.getElementById('xp-f').style.width = Math.min((s.x/(s.r*1000)*100), 100) + "%";
     if(s.p) {
@@ -79,7 +77,6 @@ function ren() {
     if(ADMINS.includes(Number(myId))) document.getElementById('admin-tab').style.display = 'block';
 }
 
-// NAVIGATION
 window.tab = (t, el) => {
     document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
     document.querySelectorAll('.nav-tab').forEach(n => n.classList.remove('active'));
@@ -91,18 +88,17 @@ window.tab = (t, el) => {
     if(t === 'admin') loadAdmin();
 };
 
-// SHOP & CASE FIX
 function renderShop() {
     let h = "";
     for(let k in CASES) {
-        h += `<div class="shop-item"><span>${CASES[k].n} <button class="btn-s" style="font-size:10px" onclick="showOdds('${k}')">?</button></span><button class="btn-s" onclick="buyCase('${k}')">${CASES[k].p} BB</button></div>`;
+        h += `<div class="shop-item"><span>${CASES[k].n} <button class="btn-s" style="padding:2px 6px; font-size:10px" onclick="showOdds('${k}')">?</button></span><button class="btn-s" onclick="buyCase('${k}')">${CASES[k].p} BB</button></div>`;
     }
     document.getElementById('shop-list').innerHTML = h;
 }
 
 window.showOdds = (k) => {
-    let c = CASES[k]; document.getElementById('odds-title').innerText = c.n;
-    let h = ""; c.drop.forEach(p => h += `<div style="display:flex; justify-content:space-between; margin-bottom:5px"><span>${p.s} ${p.n}</span><b>${p.w}%</b></div>`);
+    let c = CASES[k]; document.getElementById('odds-title').innerText = c.n + " Кейс";
+    let h = ""; c.drop.forEach(p => h += `<div style="display:flex; justify-content:space-between; margin-bottom:5px; border-bottom:1px solid #333; padding-bottom:2px"><span>${p.s} ${p.n}</span><b>${p.w}%</b></div>`);
     document.getElementById('odds-list').innerHTML = h;
     document.getElementById('odds-modal').style.display = 'flex';
 };
@@ -148,10 +144,9 @@ window.buyCase = (k) => {
 };
 window.closeCase = () => document.getElementById('case-modal').style.display = 'none';
 
-// INVENTORY
 function renderInv() {
     let list = document.getElementById('inv-list');
-    if(!s.inv || s.inv.length === 0) return list.innerHTML = "Порожньо";
+    if(!s.inv || s.inv.length === 0) return list.innerHTML = "<div style='text-align:center; opacity:0.5'>Порожньо</div>";
     let h = "";
     s.inv.forEach(p => {
         let isEq = s.p && s.p.id === p.id;
@@ -166,25 +161,34 @@ window.sellPet = (id) => {
     if(confirm(`Продати за ${pr} BB?`)) { s.b += pr; s.inv.splice(idx, 1); if(s.p?.id === id) s.p = null; save(); renderInv(); }
 };
 
-// TOP & ADMIN
 function loadTop() {
     db.ref('players').once('value', snap => {
-        let l = []; snap.forEach(c => l.push(c.val()));
+        let l = []; snap.forEach(c => { if(c.val().name) l.push(c.val()); });
         l.sort((a,b) => b.b - a.b);
-        let h = ""; l.slice(0,10).forEach((p, i) => h += `<div style="display:flex; justify-content:space-between; margin-bottom:8px"><span>${i+1}. ${p.name}</span><b>${Math.floor(p.b)}</b></div>`);
-        document.getElementById('leaderboard').innerHTML = h;
+        let h = ""; l.slice(0,10).forEach((p, i) => h += `<div style="display:flex; justify-content:space-between; margin-bottom:10px; font-size:14px"><span>${i+1}. ${p.name}</span><b style="color:var(--accent)">${Math.floor(p.b)} BB</b></div>`);
+        document.getElementById('leaderboard').innerHTML = h || "Поки порожньо";
     });
 }
+
 function loadAdmin() {
     if(!ADMINS.includes(Number(myId))) return;
-    db.ref('players').limitToLast(20).on('value', snap => {
-        let h = ""; snap.forEach(c => h += `<div class="shop-item">${c.val().name} <button class="btn-s" onclick="setB('${c.key}')">SET</button></div>`);
+    db.ref('players').limitToLast(30).on('value', snap => {
+        let h = ""; 
+        snap.forEach(c => {
+            let p = c.val();
+            h += `<div class="shop-item" style="font-size:13px">
+                <div style="display:flex; flex-direction:column">
+                    <span style="font-weight:bold">${p.name || 'Анонім'}</span>
+                    <span style="color:var(--accent); font-size:11px">${Math.floor(p.b)} BB</span>
+                </div>
+                <button class="btn-s" onclick="setB('${c.key}')">SET</button>
+            </div>`;
+        });
         document.getElementById('admin-list').innerHTML = h;
     });
 }
-window.setB = (id) => { let v = prompt("Баланс:"); if(v) db.ref('players/'+id+'/b').set(Number(v)); };
+window.setB = (id) => { let v = prompt("Введіть новий баланс:"); if(v !== null) db.ref('players/'+id+'/b').set(Number(v)); };
 
-// GAMES
 let selN_val = 1;
 window.updUI = () => {
     let g = document.getElementById('g-sel').value;
@@ -200,7 +204,7 @@ window.selN = (n, el) => { selN_val = n; document.querySelectorAll('.n-btn').for
 
 window.play = () => {
     let bt = parseInt(document.getElementById('bet-a').value);
-    if(bt > s.b || bt <= 0) return alert("Мало BB!");
+    if(bt > s.b || bt <= 0 || isNaN(bt)) return alert("Мало BB!");
     let g = document.getElementById('g-sel').value;
     if(g==='f50') { let w=Math.random()>0.5; res(w, bt, 1.45, w?"Перемога!":"Програш"); }
     else if(g==='dice') { let r=Math.floor(Math.random()*6)+1; res(r===selN_val, bt, 1.45, `Випало 🎲 ${r}`); }
@@ -221,19 +225,18 @@ function res(win, bt, m, msg) {
     save();
 }
 
-// BJ
 let bj = null;
 function startBJ(bt){ bj={p:[dr(),dr()], d:[dr()], bt}; document.getElementById('bj-ctrl').style.display='flex'; reBJ(); }
 function dr(){ return Math.floor(Math.random()*10)+2; }
 function reBJ(){
-    document.getElementById('bj-pc').innerHTML=bj.p.map(c=>`<div style="padding:5px 10px; background:#fff; color:#000; border-radius:4px">${c}</div>`).join('');
-    document.getElementById('bj-dc').innerHTML=bj.d.map(c=>`<div style="padding:5px 10px; background:#fff; color:#000; border-radius:4px">${c}</div>`).join('');
+    document.getElementById('bj-pc').innerHTML=bj.p.map(c=>`<div style="padding:5px 10px; background:#fff; color:#000; border-radius:4px; font-weight:bold">${c}</div>`).join('');
+    document.getElementById('bj-dc').innerHTML=bj.d.map(c=>`<div style="padding:5px 10px; background:#fff; color:#000; border-radius:4px; font-weight:bold">${c}</div>`).join('');
     if(bj.p.reduce((a,b)=>a+b,0)>21){ res(false,bj.bt,0,"Перебір!"); endBJ(); }
 }
 window.bjDo=(a)=>{
     const sum=(x)=>x.reduce((v,z)=>v+z,0);
     if(a==='hit'){ bj.p.push(dr()); reBJ(); }
-    else { while(sum(bj.d)<17) bj.d.push(dr()); reBJ(); let win=sum(bj.d)>21||sum(bj.p)>sum(bj.d); res(win,bj.bt,2, win?"Перемога!":"Програш"); endBJ(); }
+    else { while(sum(bj.d)<17) bj.d.push(dr()); reBJ(); let win=sum(bj.d)>21||sum(bj.p)>sum(bj.d); res(win,bj.bt,2, win?"Виграш!":"Програш"); endBJ(); }
 };
 function endBJ(){ document.getElementById('bj-ctrl').style.display='none'; }
 
