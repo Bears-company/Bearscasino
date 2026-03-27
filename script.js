@@ -1,4 +1,4 @@
-// 1. НАЛАШТУВАННЯ
+// 1. CONFIG
 const firebaseConfig = {
   apiKey: "AIzaSyD7F2lrec5XWyMWG7J0uW6IhEKD-LJ4jRY",
   authDomain: "bearscasino-bcded.firebaseapp.com",
@@ -14,11 +14,7 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 const tg = window.Telegram.WebApp;
 
-let myId = tg.initDataUnsafe?.user?.id;
-if (!myId) {
-    myId = localStorage.getItem('casino_user_uuid') || ('u' + Math.floor(Math.random()*1e7));
-    localStorage.setItem('casino_user_uuid', myId);
-}
+let myId = tg.initDataUnsafe?.user?.id || 'guest';
 const myName = tg.initDataUnsafe?.user?.first_name || "Гість";
 
 let s = { b: 5000, x: 0, r: 1, name: myName, p: null, inv: [] };
@@ -29,7 +25,7 @@ const PETS_DB = {
     diam: [{n:'Шарк', s:'🦈', r:'Epic', m:3.5, c:'#a855f7'}, {n:'Ведмідь', s:'🐻', r:'Legend', m:5.5, c:'#f43f5e'}]
 };
 
-// 2. СИНХРОНІЗАЦІЯ З БАЗОЮ
+// 2. DATABASE SYNC
 db.ref('players/' + myId).on('value', snap => {
     if(snap.exists()){ 
         let d = snap.val();
@@ -41,7 +37,6 @@ db.ref('players/' + myId).on('value', snap => {
 function save() {
     if(s.x >= s.r * 1000) { s.x = 0; s.r++; alert("НОВИЙ РАНГ!"); }
     db.ref('players/' + myId).set(s);
-    ren();
 }
 
 function ren() {
@@ -57,10 +52,10 @@ function ren() {
     }
 }
 
-// 3. СИСТЕМА КЕЙСІВ (РУЛЕТКА)
-window.buy = (t, c) => {
-    if(s.b < c) return alert("Мало BB!");
-    s.b -= c;
+// 3. CASES & ANIMATION
+window.buy = (t, cost) => {
+    if(s.b < cost) return alert("Мало BB!");
+    s.b -= cost;
     save();
     
     const modal = document.getElementById('case-modal');
@@ -72,35 +67,30 @@ window.buy = (t, c) => {
     resText.textContent = "";
     closeBtn.style.display = 'none';
     
-    // Візуал прокрутки
     let pool = [...PETS_DB.wood, ...PETS_DB.iron, ...PETS_DB.diam];
-    let itemsHTML = "";
+    let html = "";
     for(let i=0; i<45; i++) {
         let p = pool[Math.floor(Math.random()*pool.length)];
-        itemsHTML += `<div class="case-item" style="border-color:${p.c}">${p.s}</div>`;
+        html += `<div class="case-item" style="border-color:${p.c}">${p.s}</div>`;
     }
-    scroll.innerHTML = itemsHTML;
+    scroll.innerHTML = html;
     scroll.style.transition = "0s";
     scroll.style.left = "0px";
 
-    // Результат (визначається наперед)
     let winPet = { ...(Math.random() > 0.5 ? PETS_DB[t][0] : PETS_DB[t][1]), lvl: 1, id: Date.now(), egg: t };
     
-    // Вставляємо результат у 40-ву позицію
     setTimeout(() => {
         let all = document.querySelectorAll('.case-item');
         all[40].innerHTML = winPet.s;
         all[40].style.borderColor = winPet.c;
-        all[40].style.background = "rgba(255,183,3,0.1)";
         
         scroll.style.transition = "5s cubic-bezier(0.1, 0, 0.1, 1)";
         scroll.style.left = `-${40 * 90 - 120}px`;
-    }, 50);
+    }, 100);
 
     setTimeout(() => {
-        resText.innerHTML = `<span style="color:${winPet.c}">${winPet.n.toUpperCase()}!</span>`;
+        resText.innerHTML = `<span style="color:${winPet.c}">${winPet.n}</span>`;
         closeBtn.style.display = "block";
-        if(!s.inv) s.inv = [];
         s.inv.push(winPet);
         save();
     }, 5500);
@@ -108,21 +98,19 @@ window.buy = (t, c) => {
 
 window.closeCase = () => document.getElementById('case-modal').style.display = 'none';
 
-// 4. ІНВЕНТАР ТА РИНОК
+// 4. MARKET & INVENTORY
 function renderInv() {
     let list = document.getElementById('inv-list');
     if(!s.inv || s.inv.length === 0) return list.innerHTML = "Порожньо...";
     let h = "";
     s.inv.forEach(p => {
         let isEq = s.p && s.p.id === p.id;
-        h += `<div class="market-card" style="border-color:${p.c}">
+        h += `<div class="market-card">
             <div style="font-size:30px">${p.s}</div>
-            <div style="flex:1">
-                <b style="color:${p.c}">${p.n}</b><br><small>Lvl ${p.lvl}</small>
-            </div>
-            <div style="display:flex; flex-direction:column; gap:4px">
-                <button class="btn-s" style="padding:4px 8px; font-size:10px; background:${isEq?'#444':''}" onclick="equip(${p.id})">${isEq?'АКТИВ':'ВЗЯТИ'}</button>
-                <button class="btn-s" style="padding:4px 8px; font-size:10px; background:var(--success)" onclick="marketSell(${p.id})">РИНОК</button>
+            <div style="flex:1"><b>${p.n}</b></div>
+            <div style="display:flex; gap:5px">
+                <button class="btn-s" style="font-size:10px; background:${isEq?'#444':''}" onclick="equip(${p.id})">${isEq?'АКТИВ':'ВЗЯТИ'}</button>
+                <button class="btn-s" style="font-size:10px; background:var(--success)" onclick="marketSell(${p.id})">РИНОК</button>
             </div>
         </div>`;
     });
@@ -134,60 +122,84 @@ window.equip = (id) => {
     if(f) { s.p = f; save(); renderInv(); }
 };
 
-// Продаж на ринок
 window.marketSell = (id) => {
-    if(s.p && s.p.id === id) return alert("Зніміть пета спочатку!");
-    let price = prompt("Введіть ціну (BB):");
+    if(s.p && s.p.id === id) return alert("Спочатку зніміть пета!");
+    let price = prompt("Ціна продажу (BB):");
     price = parseInt(price);
     if(isNaN(price) || price <= 0) return;
 
     let idx = s.inv.findIndex(p => p.id === id);
     let pet = s.inv[idx];
 
-    db.ref('market/' + id).set({
-        pet: pet, price: price, sellerId: myId, sellerName: s.name
-    }).then(() => {
+    db.ref('market/' + id).set({ pet: pet, price: price, sellerId: myId, sellerName: s.name })
+    .then(() => {
         s.inv.splice(idx, 1);
         save();
         renderInv();
-        alert("Лот виставлено!");
+        alert("Виставлено!");
     });
 };
 
 function renderMarket() {
     db.ref('market').on('value', snap => {
+        let list = document.getElementById('market-list');
         let h = "";
-        if(!snap.exists()) h = "<center>Лотів немає</center>";
+        if(!snap.exists()) h = "Лотів немає";
         snap.forEach(l => {
             let lot = l.val();
             h += `<div class="market-card">
-                <div style="font-size:30px">${lot.pet.s}</div>
-                <div style="flex:1"><b>${lot.pet.n}</b><br><small>Продавець: ${lot.sellerName}</small></div>
+                <div>${lot.pet.s}</div>
+                <div style="flex:1"><b>${lot.pet.n}</b><br><small>${lot.sellerName}</small></div>
                 <button class="btn-s" onclick="buyLot('${l.key}', ${lot.price})">${lot.price}</button>
             </div>`;
         });
-        document.getElementById('market-list').innerHTML = h;
+        list.innerHTML = h;
     });
 }
 
-window.buyLot = (lId, pr) => {
-    if(s.b < pr) return alert("Мало BB!");
-    db.ref('market/' + lId).once('value', snap => {
+window.buyLot = (lotId, price) => {
+    if(s.b < price) return alert("Мало BB!");
+    db.ref('market/' + lotId).once('value', snap => {
         let lot = snap.val();
         if(lot.sellerId === myId) return alert("Це твій лот!");
-        
-        s.b -= pr;
-        if(!s.inv) s.inv = [];
+        s.b -= price;
         s.inv.push(lot.pet);
         save();
-        
-        db.ref('players/' + lot.sellerId + '/b').transaction(c => (c||0) + pr);
-        db.ref('market/' + lId).remove();
-        alert("КУПЛЕНО!");
+        db.ref('players/' + lot.sellerId + '/b').transaction(c => (c||0) + price);
+        db.ref('market/' + lotId).remove();
+        alert("Куплено!");
     });
 };
 
-// 5. НАВІГАЦІЯ
+// 5. LEADERBOARD & ADMIN
+function loadLeaderboard() {
+    db.ref('players').orderByChild('b').limitToLast(10).on('value', snap => {
+        let h = ""; let arr = [];
+        snap.forEach(p => arr.push(p.val()));
+        arr.reverse().forEach((v, i) => {
+            h += `<div style="display:flex; justify-content:space-between; margin-bottom:8px">
+                <span>${i+1}. ${v.name}</span><b>${Math.floor(v.b).toLocaleString()}</b>
+            </div>`;
+        });
+        document.getElementById('leaderboard').innerHTML = h;
+    });
+}
+
+function loadAdmin() {
+    db.ref('players').on('value', snap => {
+        let h = "";
+        snap.forEach(c => {
+            let p = c.val(); let id = c.key;
+            h += `<div style="font-size:12px; margin-bottom:10px">${p.name}
+                <div style="display:flex; gap:5px"><input type="number" id="adm-${id}" placeholder="Баланс"><button class="btn-s" onclick="setB('${id}')">OK</button></div>
+            </div>`;
+        });
+        document.getElementById('admin-list').innerHTML = h;
+    });
+}
+window.setB = (id) => { let v = parseInt(document.getElementById('adm-'+id).value); if(!isNaN(v)) db.ref('players/'+id+'/b').set(v); };
+
+// 6. TABS & GAMES
 window.tab = (t, el) => {
     document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
     document.querySelectorAll('.nav-tab').forEach(n => n.classList.remove('active'));
@@ -195,10 +207,9 @@ window.tab = (t, el) => {
     el.classList.add('active');
     if(t === 'inv') renderInv();
     if(t === 'market') renderMarket();
-    if(t === 'admin') loadAdmin();
+    if(t === 'admin') { loadLeaderboard(); loadAdmin(); }
 };
 
-// 6. ІГРОВА ЛОГІКА (БЕЗ ЗМІН)
 window.updUI = () => {
     let g = document.getElementById('g-sel').value;
     document.getElementById('ui-dice').style.display = (g==='dice')?'block':'none';
@@ -252,18 +263,5 @@ window.bjDo=(a)=>{
     else { while(sum(bj.d)<17) bj.d.push(dr()); reBJ(); res(sum(bj.d)>21||sum(bj.p)>sum(bj.d),bj.bt,2); endBJ(); }
 };
 function endBJ(){ document.getElementById('bj-ctrl').style.display='none'; }
-
-function loadAdmin() {
-    db.ref('players').on('value', snap => {
-        let h = ""; snap.forEach(c => {
-            let p = c.val(); let id = c.key;
-            h += `<div class="glass" style="font-size:12px"><b>${p.name}</b>: ${Math.floor(p.b)} BB
-                <div style="display:flex; gap:5px; margin-top:5px"><input type="number" id="adm-${id}" style="margin:0; flex:1"><button class="btn-s" onclick="setB('${id}')">OK</button></div>
-            </div>`;
-        });
-        document.getElementById('admin-list').innerHTML = h;
-    });
-}
-window.setB = (id) => { let v = parseInt(document.getElementById('adm-'+id).value); if(!isNaN(v)) db.ref('players/'+id+'/b').set(v).then(()=>alert("OK")); };
 
 updUI();

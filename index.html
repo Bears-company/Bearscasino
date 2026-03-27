@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-    <title>BEARS CASINO: MARKET & CASES</title>
+    <title>BEARS CASINO: ULTIMATE</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
@@ -44,51 +44,64 @@
             <div id="ui-dice" style="display:none; margin:15px 0;"><div class="dice-grid"></div></div>
             <div id="ui-wheel" style="display:none; text-align:center"><div class="w-wrap"><div class="marker"></div><div id="w-obj" class="w-main"></div></div></div>
             <div id="ui-bj" style="display:none; margin:20px 0; text-align:center">
-                <div id="bj-dc" class="card-row"></div><div style="height:1px; background:var(--border); margin:10px 0"></div><div id="bj-pc" class="card-row"></div>
+                <div id="bj-dc" class="card-row"></div><div id="bj-pc" class="card-row"></div>
                 <div id="bj-ctrl" style="display:none; gap:10px; margin-top:15px"><button class="btn" onclick="bjDo('hit')">ЩЕ</button><button class="btn" style="background:var(--error)" onclick="bjDo('stand')">СТОП</button></div>
             </div>
             <input type="number" id="bet-a" value="100">
-            <button class="btn" onclick="play()">ЗРОБИТИ СТАВКУ</button>
-            <div id="g-stat" style="text-align:center; margin-top:15px; font-weight:900; min-height:24px"></div>
+            <button class="btn" onclick="play()">ГРАТИ</button>
+            <div id="g-stat" style="text-align:center; margin-top:15px; font-weight:900;"></div>
         </div>
     </div>
 
     <div id="v-shop" class="page" style="display:none">
         <div class="glass">
-            <h3>📦 МАГАЗИН КЕЙСІВ</h3>
-            <div class="shop-item"><span>Дерев'яний кейс</span><button class="btn-s" onclick="buy('wood', 2000)">2,000</button></div>
-            <div class="shop-item"><span>Залізний кейс</span><button class="btn-s" onclick="buy('iron', 10000)">10,000</button></div>
-            <div class="shop-item"><span>Діамантовий кейс</span><button class="btn-s" onclick="buy('diam', 50000)">50,000</button></div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px">
+                <h3 style="margin:0">📦 КЕЙСИ</h3>
+                <button class="btn-s" style="font-size:10px" onclick="tab('market', document.querySelectorAll('.nav-tab')[2])">🤝 НА РИНОК</button>
+            </div>
+            <div class="shop-item"><span>Дерев'яний</span><button class="btn-s" onclick="buy('wood', 2000)">2,000</button></div>
+            <div class="shop-item"><span>Залізний</span><button class="btn-s" onclick="buy('iron', 10000)">10,000</button></div>
+            <div class="shop-item"><span>Діамантовий</span><button class="btn-s" onclick="buy('diam', 50000)">50,000</button></div>
         </div>
     </div>
 
     <div id="v-market" class="page" style="display:none">
         <div class="glass">
-            <h3>🤝 РИНОК ГРАВЦІВ</h3>
-            <div id="market-list">Лотів поки немає...</div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px">
+                <h3 style="margin:0">🤝 РИНОК</h3>
+                <button class="btn-s" style="font-size:10px" onclick="tab('shop', document.querySelectorAll('.nav-tab')[1])">📦 В МАГАЗИН</button>
+            </div>
+            <div id="market-list">Завантаження...</div>
         </div>
     </div>
 
     <div id="v-inv" class="page" style="display:none">
         <div class="glass">
-            <h3>🎒 ТВІЙ ІНВЕНТАР</h3>
-            <div id="inv-list">Завантаження...</div>
+            <h3>🎒 ІНВЕНТАР</h3>
+            <div id="inv-list">...</div>
         </div>
     </div>
 
     <div id="v-admin" class="page" style="display:none">
-        <div class="glass"><h3>⚡ АДМІН-ПАНЕЛЬ</h3><div id="admin-list">...</div></div>
+        <div class="glass">
+            <h3>🏆 ТОП ГРАВЦІВ</h3>
+            <div id="leaderboard" style="font-size:14px"></div>
+        </div>
+        <div class="glass">
+            <h3>⚡ АДМІНКА</h3>
+            <div id="admin-list"></div>
+        </div>
     </div>
 </div>
 
-<div id="case-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); z-index:1000; align-items:center; justify-content:center; flex-direction:column; padding:20px;">
-    <h2 id="case-title" style="color:var(--accent); margin-bottom:30px;">ВІДКРИТТЯ КЕЙСА...</h2>
+<div id="case-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); z-index:1000; align-items:center; justify-content:center; flex-direction:column;">
+    <h2 id="case-title" style="color:var(--accent)">ВІДКРИТТЯ...</h2>
     <div class="case-roulette">
         <div id="case-line"></div>
         <div id="case-scroll"></div>
     </div>
-    <div id="case-res" style="margin-top:30px; font-size:24px; font-weight:bold; text-align:center; min-height:40px"></div>
-    <button class="btn" style="width:200px; margin-top:30px; display:none" id="case-close" onclick="closeCase()">ЗАБРАТИ ПЕТА</button>
+    <div id="case-res" style="margin-top:25px; font-size:22px; font-weight:bold; height:30px"></div>
+    <button class="btn" style="width:200px; margin-top:25px; display:none" id="case-close" onclick="closeCase()">ЗАБРАТИ</button>
 </div>
 
 <nav>
@@ -96,7 +109,7 @@
     <div class="nav-tab" onclick="tab('shop', this)">📦</div>
     <div class="nav-tab" onclick="tab('market', this)">🤝</div>
     <div class="nav-tab" onclick="tab('inv', this)">🎒</div>
-    <div class="nav-tab" onclick="tab('admin', this)">⚡</div>
+    <div class="nav-tab" onclick="tab('admin', this)">🏆</div>
 </nav>
 
 <script src="script.js"></script>
