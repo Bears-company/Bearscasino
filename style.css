@@ -1,116 +1,69 @@
-/* BEARS CASINO - ANIMATED GRADIENT EDITION */
 :root { 
-    --bg-main: #06010d;
+    --bg: #06010d;
     --accent: #ffb703;
-    --accent-2: #fb8500;
-    --glass: rgba(255,255,255,0.03);
+    --glass: rgba(255,255,255,0.05);
     --border: rgba(255,255,255,0.1);
 }
 
-* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: 'Inter', sans-serif; }
-
-/* 1. ПЕРЕЛИВАЮЧИЙСЯ ФОН УСЬОГО САЙТУ */
 body { 
-    margin:0; 
-    min-height:100vh; 
-    background: linear-gradient(-45deg, #06010d, #1a0230, #0d0214, #1a0230);
-    background-size: 400% 400%;
-    animation: gradientBG 15s ease infinite; /* Фон повільно рухається */
-    color:#fff; 
-    padding-bottom: 110px; 
+    margin:0; background: var(--bg); color:#fff; 
+    font-family: sans-serif; padding-bottom: 100px;
 }
 
-@keyframes gradientBG {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
+/* Анімований фон, який не заважає натисканню */
+body::before {
+    content: ""; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: linear-gradient(45deg, #06010d, #1a0230);
+    z-index: -1;
 }
 
-/* 2. ПЕРЕЛИВАЮЧІСЯ КНОПКИ */
-.btn { 
-    background: linear-gradient(90deg, #ffb703, #fb8500, #ff00ff, #ffb703);
-    background-size: 300% 100%;
-    animation: btnFlow 4s linear infinite; /* Кнопка завжди переливається */
-    color: #000; 
-    width: 100%; 
-    padding: 18px; 
-    border: none; 
-    border-radius: 20px; 
-    font-weight: 900; 
-    text-transform: uppercase;
-    cursor: pointer; 
-    box-shadow: 0 0 20px rgba(251,133,0,0.3);
-    transition: 0.3s;
+header { 
+    display:flex; justify-content:space-between; align-items:center; 
+    padding:15px; background:rgba(0,0,0,0.8); border-bottom:1px solid var(--border);
 }
 
-@keyframes btnFlow {
-    0% { background-position: 0% 0%; }
-    100% { background-position: 100% 0%; }
-}
+.bal-card { color: var(--accent); font-weight:900; border:1px solid var(--accent); padding:5px 10px; border-radius:10px; }
 
-.btn:active { transform: scale(0.95); filter: brightness(1.2); }
+.container { max-width:450px; margin:0 auto; padding:15px; }
 
-/* 3. ПЕРЕЛИВАЮЧИЙСЯ ТЕКСТ (БАЛАНС ТА РАНГ) */
-header #u-name, #bal-val {
-    background: linear-gradient(90deg, #fff, #ffb703, #fff);
-    background-size: 200% auto;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    animation: textFlow 3s linear infinite;
-    font-weight: 900;
-}
-
-@keyframes textFlow {
-    to { background-position: 200% center; }
-}
-
-/* 4. СКЛЯНІ КАРТКИ З ПІДСВІТКОЮ */
 .glass { 
-    background: var(--glass); 
-    backdrop-filter: blur(20px);
-    border-radius: 28px; 
-    padding: 22px; 
-    border: 1px solid var(--border); 
-    position: relative;
-    overflow: hidden;
+    background: var(--glass); backdrop-filter: blur(10px);
+    border-radius: 20px; padding: 20px; border: 1px solid var(--border);
+    margin-bottom: 15px;
 }
 
-/* Ефект "Блік", що проходить по картці */
-.glass::after {
-    content: "";
-    position: absolute;
-    top: -50%;
-    left: -50%;
-    width: 200%;
-    height: 200%;
-    background: linear-gradient(45deg, transparent, rgba(255,255,255,0.05), transparent);
-    transform: rotate(45deg);
-    animation: shine 6s infinite;
-}
-
-@keyframes shine {
-    0% { left: -100%; }
-    20% { left: 100%; }
-    100% { left: 100%; }
-}
-
-/* 5. XP BAR (ПЕРЕЛИВАЄТЬСЯ) */
+/* XP BAR */
+.xp-bar { height:10px; background: #000; border-radius:5px; margin:10px 0; overflow:hidden; }
 .xp-fill { 
-    height:100%; 
-    background: linear-gradient(90deg, #00f5a0, #00d2ff, #00f5a0); 
-    background-size: 200% 100%;
-    animation: xpFlow 2s linear infinite;
-    width:0%; 
-    transition: 0.5s; 
+    height:100%; background: linear-gradient(90deg, #ffb703, #fb8500); 
+    width:0%; transition: 0.5s; 
 }
 
-@keyframes xpFlow {
-    0% { background-position: 0% 0%; }
-    100% { background-position: 100% 0%; }
+/* КНОПКИ (Тепер натискаються!) */
+.btn { 
+    background: linear-gradient(90deg, #ffb703, #fb8500);
+    color: #000; width: 100%; padding: 15px; border: none; 
+    border-radius: 15px; font-weight: 900; cursor: pointer;
+    margin-top: 10px; position: relative; z-index: 10;
 }
 
-/* ... інший код (Header, Nav) залишається без змін ... */
-header { display:flex; justify-content:space-between; padding:20px; border-bottom:1px solid var(--border); }
-nav { position:fixed; bottom:15px; left:15px; right:15px; height:75px; background:rgba(20,5,30,0.9); border-radius:30px; display:flex; justify-content:space-around; align-items:center; border:1px solid var(--border); }
-.nav-tab { color:#8d99ae; font-size:11px; text-align:center; flex:1; }
-.nav-tab.active { color:var(--accent); }
+.btn:active { transform: scale(0.98); }
+
+/* КОЛЕСО */
+.w-wrap { position: relative; width: 180px; height: 180px; margin: 20px auto; }
+.w-main { 
+    width: 100%; height: 100%; border-radius: 50%; border: 5px solid #222; 
+    transition: 4s cubic-bezier(0.1, 0, 0.1, 1); 
+    background: conic-gradient(#ff4d6d 0% 25%, #00f5a0 25% 50%, #3b82f6 50% 75%, #ffb703 75% 100%); 
+}
+.marker { 
+    position: absolute; top: -10px; left: 50%; transform: translateX(-50%); 
+    width: 20px; height: 20px; background: #fff; clip-path: polygon(50% 100%, 0 0, 100% 0); z-index: 20; 
+}
+
+nav { 
+    position:fixed; bottom:0; left:0; right:0; height:70px; 
+    background:#111; display:flex; justify-content:space-around; align-items:center;
+}
+.nav-tab { color:#666; font-size:12px; text-align:center; flex:1; }
+.nav-tab.active { color:var(--accent); font-weight:bold; }
