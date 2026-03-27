@@ -18,3 +18,17 @@ nav { position:fixed; bottom:0; left:0; right:0; background:#1a0525; display:fle
 .marker { position:absolute; top:-10px; left:50%; transform:translateX(-50%); width:20px; height:20px; background:#fff; clip-path:polygon(50% 100%, 0 0, 100% 0); z-index:10; }
 input, select { width:100%; padding:12px; border-radius:10px; background:#000; color:#fff; border:1px solid var(--border); margin-top:10px; }
 #p-rarity { font-size:10px; background:#94a3b8; color:#000; padding:2px 6px; border-radius:4px; display:inline-block; }
+/* Кнопки вибору числа в кубику */
+.n-btn { 
+    background: #1a0525; border: 1px solid var(--border); color: #fff; 
+    padding: 10px 15px; border-radius: 8px; cursor: pointer; transition: 0.2s;
+}
+.n-btn.active { background: var(--accent); color: #000; border-color: #fff; }
+
+/* Картки Блекджека */
+.bj-card {
+    display: inline-block; width: 40px; height: 55px; background: #fff; 
+    color: #000; border-radius: 5px; margin: 3px; line-height: 55px; 
+    font-weight: 900; font-size: 18px; text-align: center;
+}
+

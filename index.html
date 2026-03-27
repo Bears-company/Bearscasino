@@ -1,82 +1,43 @@
-<!doctype html>
-<html lang="uk">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-    <title>BEARS CASINO</title>
-    <link rel="stylesheet" href="style.css">
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
-</head>
-<body>
-
-<header>
-    <div>
-        <div id="u-name" style="font-weight:900">BEARS CASINO</div>
-        <div id="u-rank">РАНГ: 1</div>
-    </div>
-    <div class="bal-card"><span id="bal-val">5000</span> BB</div>
-</header>
-
 <div class="container">
-    <div class="glass" style="display:flex; align-items:center; gap:15px; margin-bottom:10px">
-        <div id="p-img" style="font-size:40px">🥚</div>
-        <div style="flex:1">
-            <div id="p-rarity">НЕМАЄ</div>
-            <div id="p-name" style="font-weight:bold">Твій Пет</div>
-            <div class="xp-bar"><div id="xp-f" class="xp-fill"></div></div>
-            <div style="display:flex; justify-content:space-between; font-size:12px">
-                <span>Бонус: <span id="p-m" style="color:var(--accent)">x1.0</span></span>
-                <span>Lvl: <span id="p-l">1</span></span>
-            </div>
-        </div>
-    </div>
-
     <div id="v-main" class="page">
         <div class="glass" style="text-align:center">
             <select id="g-sel" onchange="updUI()">
-                <option value="dice">🎲 Кубик (x2)</option>
-                <option value="wheel">🎡 Колесо (x0 - x5)</option>
+                <option value="dice">🎲 Кубик (Число 1-6) - x1.45</option>
+                <option value="f50">⚖️ 50/50 - x1.45</option>
+                <option value="wheel">🎡 Колесо (0 - x1.75)</option>
+                <option value="bj">🃏 Блекджек - x2.0</option>
             </select>
+
+            <div id="ui-dice" style="margin-top:10px">
+                <p style="font-size:12px;color:#8d99ae">Вгадай число:</p>
+                <div style="display:flex; justify-content:center; gap:5px">
+                    <button class="n-btn" onclick="selN(1)">1</button>
+                    <button class="n-btn" onclick="selN(2)">2</button>
+                    <button class="n-btn" onclick="selN(3)">3</button>
+                    <button class="n-btn" onclick="selN(4)">4</button>
+                    <button class="n-btn" onclick="selN(5)">5</button>
+                    <button class="n-btn" onclick="selN(6)">6</button>
+                </div>
+            </div>
+
             <div id="ui-wheel" style="display:none">
                 <div class="w-wrap"><div class="marker"></div><div id="w-obj" class="w-main"></div></div>
+                <div style="font-size:10px; color:#8d99ae; margin-top:5px">🔴0 | 🟢x1.25 | 🔵x1.5 | 🟡x1.75</div>
             </div>
+
+            <div id="ui-bj" style="display:none; margin:15px 0">
+                <div id="bj-dc"></div>
+                <div style="margin:10px 0; border-top:1px solid var(--border)"></div>
+                <div id="bj-pc"></div>
+                <div id="bj-ctrl" style="display:none; gap:10px; margin-top:10px">
+                    <button class="btn" style="flex:1" onclick="bjDo('hit')">ЩЕ</button>
+                    <button class="btn" style="flex:1; background:#ff4d6d" onclick="bjDo('stand')">СТОП</button>
+                </div>
+            </div>
+
             <input type="number" id="bet-a" value="100">
-            <button class="btn" id="b-play" onclick="play()">ГРАТИ</button>
+            <button class="btn" id="b-play" onclick="play()">СТАВКА</button>
             <div id="g-stat" style="margin-top:15px; font-weight:bold; min-height:20px"></div>
         </div>
     </div>
-
-    <div id="v-shop" class="page" style="display:none">
-        <div class="glass">
-            <h3 style="margin-top:0">🥚 МАГАЗИН ЯЄЦЬ</h3>
-            <div class="shop-item">
-                <div><b>Дерев'яне (1k)</b><br><small>Common/Rare</small></div>
-                <button class="btn" style="width:auto; padding:8px 15px; margin:0" onclick="buy('egg_wood', 1000)">КУПИТИ</button>
-            </div>
-            <div class="shop-item">
-                <div><b>Залізне (5k)</b><br><small>Rare/Epic</small></div>
-                <button class="btn" style="width:auto; padding:8px 15px; margin:0" onclick="buy('egg_iron', 5000)">КУПИТИ</button>
-            </div>
-            <div class="shop-item">
-                <div><b>Діамантове (20k)</b><br><small>Epic/Legendary</small></div>
-                <button class="btn" style="width:auto; padding:8px 15px; margin:0" onclick="buy('egg_diamond', 20000)">КУПИТИ</button>
-            </div>
-        </div>
     </div>
-
-    <div id="v-top" class="page" style="display:none">
-        <div class="glass"><h3>🏆 ТОП ГРАВЦІВ</h3><div id="leaderboard">Завантаження...</div></div>
-    </div>
-</div>
-
-<nav>
-    <div class="nav-tab active" onclick="tab('main', this)">🎮 Гра</div>
-    <div class="nav-tab" onclick="tab('shop', this)">🥚 Шоп</div>
-    <div class="nav-tab" onclick="tab('top', this)">🏆 Топ</div>
-</nav>
-
-<script src="script.js"></script>
-</body>
-</html>
