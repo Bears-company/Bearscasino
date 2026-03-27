@@ -14,7 +14,6 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 const tg = window.Telegram.WebApp;
 
-// Унікальний ID для кожного гравця
 let myId = tg.initDataUnsafe?.user?.id;
 if (!myId) {
     myId = localStorage.getItem('casino_user_uuid') || ('u' + Math.floor(Math.random()*1e7));
@@ -22,8 +21,9 @@ if (!myId) {
 }
 const myName = tg.initDataUnsafe?.user?.first_name || "Гість";
 
-// Дані гри
+// Початкові дані з порожнім інвентарем
 let s = { b: 5000, x: 0, r: 1, name: myName, p: null, inv: [] };
+
 const EGG_COST = { wood: 2000, iron: 10000, diam: 50000 };
 const SELL_RATE = { Common: 0.1, Rare: 0.2, Epic: 0.3, Legend: 0.5 };
 
@@ -35,7 +35,15 @@ const PETS_DB = {
 
 // 2. БАЗА ДАНИХ
 db.ref('players/' + myId).on('value', snap => {
-    if(snap.exists()){ s = snap.val(); if(!s.inv) s.inv = []; ren(); } else { save(); }
+    if(snap.exists()){ 
+        let data = snap.val();
+        // ПЕРЕВІРКА: якщо інвентарю немає в базі, додаємо порожній масив
+        if(!data.inv) data.inv = []; 
+        s = data;
+        ren(); 
+    } else { 
+        save(); 
+    }
 });
 
 function save() {
@@ -53,7 +61,9 @@ function ren() {
         document.getElementById('p-name').textContent = s.p.n;
         document.getElementById('p-l').textContent = s.p.lvl;
         document.getElementById('p-m').textContent = "x" + (s.p.m + s.p.lvl*0.1).toFixed(1);
-        let t = document.getElementById('p-rarity'); t.textContent = s.p.r; t.style.background = s.p.c;
+        let t = document.getElementById('p-rarity'); 
+        t.textContent = s.p.r; 
+        t.style.background = s.p.c;
     }
 }
 
@@ -63,29 +73,36 @@ window.buy = (t, c) => {
     s.b -= c;
     let r = Math.random();
     let newPet = { ...(r > 0.5 ? PETS_DB[t][0] : PETS_DB[t][1]), lvl: 1, id: Date.now(), egg: t };
+    
     if(!s.inv) s.inv = [];
     s.inv.push(newPet);
-    if(!s.p) s.p = newPet; // Екіпіруємо першого
+    
+    if(!s.p) s.p = newPet; 
     save();
     alert("Ти вибив: " + newPet.n);
 };
 
 function renderInv() {
     let list = document.getElementById('inv-list');
-    if(!s.inv || s.inv.length === 0) return list.innerHTML = "Інвентар порожній...";
+    // Якщо інвентар порожній
+    if(!s.inv || s.inv.length === 0) {
+        list.innerHTML = "<div style='text-align:center; padding:20px; opacity:0.5'>Тут поки що порожньо. Купи яйце в магазині!</div>";
+        return;
+    }
+    
     let h = "";
     s.inv.forEach(p => {
         let isEq = s.p && s.p.id === p.id;
         let sPrice = Math.floor(EGG_COST[p.egg] * SELL_RATE[p.r]);
-        h += `<div class="glass" style="display:flex; align-items:center; gap:10px; border-color:${p.c}">
+        h += `<div class="glass" style="display:flex; align-items:center; gap:10px; border:1px solid ${p.c}">
             <div style="font-size:30px">${p.s}</div>
             <div style="flex:1">
                 <div style="color:${p.c}; font-weight:bold">${p.n}</div>
                 <div style="font-size:10px">Lvl ${p.lvl} | x${(p.m + p.lvl*0.1).toFixed(1)}</div>
             </div>
             <div style="display:flex; flex-direction:column; gap:5px">
-                <button class="btn-s" style="padding:4px 8px; font-size:10px; background:${isEq?'#555':''}" onclick="equip(${p.id})">${isEq?'Вдягнено':'Взяти'}</button>
-                <button class="btn-sell" onclick="sell(${p.id}, ${sPrice})">Продати ${sPrice}</button>
+                <button class="btn-s" style="padding:4px 8px; font-size:10px; background:${isEq?'#555':''}" onclick="equip(${p.id})">${isEq?'Активний':'Взяти'}</button>
+                <button class="btn-sell" onclick="sell(${p.id}, ${sPrice})">💵 ${sPrice}</button>
             </div>
         </div>`;
     });
@@ -94,7 +111,11 @@ function renderInv() {
 
 window.equip = (id) => {
     let found = s.inv.find(i => i.id === id);
-    if(found) { s.p = found; save(); renderInv(); }
+    if(found) { 
+        s.p = found; 
+        save(); 
+        renderInv(); 
+    }
 };
 
 window.sell = (id, pr) => {
@@ -105,39 +126,53 @@ window.sell = (id, pr) => {
     renderInv();
 };
 
-// 4. ІГРОВА ЛОГІКА
+// 4. НАВІГАЦІЯ
 window.tab = (t, el) => {
     document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
     document.querySelectorAll('.nav-tab').forEach(n => n.classList.remove('active'));
-    document.getElementById('v-'+t).style.display = 'block';
-    el.classList.add('active');
-    if(t === 'inv') renderInv();
-    if(t === 'admin') loadAdmin();
+    
+    let targetPage = document.getElementById('v-'+t);
+    if(targetPage) {
+        targetPage.style.display = 'block';
+        el.classList.add('active');
+        if(t === 'inv') renderInv();
+        if(t === 'admin') loadAdmin();
+    }
 };
 
+// --- РЕШТА ФУНКЦІЙ (Ігри, Топ, Адмінка) ---
 window.updUI = () => {
     let g = document.getElementById('g-sel').value;
     document.getElementById('ui-dice').style.display = (g==='dice')?'block':'none';
     document.getElementById('ui-wheel').style.display = (g==='wheel')?'block':'none';
     document.getElementById('ui-bj').style.display = (g==='bj')?'block':'none';
-    if(g === 'dice' && !document.querySelector('.dice-grid').innerHTML) {
-        let h = ""; for(let i=1; i<=6; i++) h += `<button class="n-btn ${i===1?'active':''}" onclick="selN(${i}, this)">${i}</button>`;
-        document.querySelector('.dice-grid').innerHTML = h;
-    }
 };
+
 let selN_val = 1;
-window.selN = (n, el) => { selN_val = n; document.querySelectorAll('.n-btn').forEach(b => b.classList.remove('active')); el.classList.add('active'); };
+window.selN = (n, el) => { 
+    selN_val = n; 
+    document.querySelectorAll('.n-btn').forEach(b => b.classList.remove('active')); 
+    el.classList.add('active'); 
+};
 
 window.play = () => {
     let bt = parseInt(document.getElementById('bet-a').value);
     if(isNaN(bt) || bt <= 0 || bt > s.b) return alert("Мало BB!");
     let g = document.getElementById('g-sel').value;
     if(g === 'f50') res(Math.random() > 0.5, bt, 1.45);
-    else if(g === 'dice') { let r = Math.floor(Math.random()*6)+1; setTimeout(() => res(r === selN_val, bt, 1.45), 500); }
+    else if(g === 'dice') { 
+        let r = Math.floor(Math.random()*6)+1; 
+        setTimeout(() => res(r === selN_val, bt, 1.45), 500); 
+    }
     else if(g === 'wheel') {
-        let w = document.getElementById('w-obj'); let deg = 1800 + Math.floor(Math.random()*360);
+        let w = document.getElementById('w-obj'); 
+        let deg = 1800 + Math.floor(Math.random()*360);
         w.style.transform = `rotate(${deg}deg)`;
-        setTimeout(() => { let p = Math.random()*100; let m = (p<45)?0 : (p<80)?1.25 : (p<95)?1.5 : 1.75; res(m>0, bt, m); }, 3000);
+        setTimeout(() => { 
+            let p = Math.random()*100; 
+            let m = (p<45)?0 : (p<80)?1.25 : (p<95)?1.5 : 1.75; 
+            res(m>0, bt, m); 
+        }, 3000);
     }
     else if(g === 'bj') startBJ(bt);
 };
@@ -146,15 +181,16 @@ function res(win, bt, m) {
     if(win) {
         let bon = s.p ? (s.p.m + s.p.lvl*0.1) : 1;
         let winSum = Math.floor((bt * m - bt) * bon);
-        s.b += winSum; s.x += Math.floor(bt/4);
+        s.b += winSum; 
+        s.x += Math.floor(bt/4);
         document.getElementById('g-stat').innerHTML = `<span style="color:var(--success)">+${winSum} BB</span>`;
     } else {
-        s.b -= bt; document.getElementById('g-stat').innerHTML = `<span style="color:var(--error)">-${bt} BB</span>`;
+        s.b -= bt; 
+        document.getElementById('g-stat').innerHTML = `<span style="color:var(--error)">-${bt} BB</span>`;
     }
     save();
 }
 
-// Блекджек (спрощений)
 function startBJ(bt){ bj={p:[dr(),dr()], d:[dr()], bt}; document.getElementById('bj-ctrl').style.display='flex'; reBJ(); }
 function dr(){ return Math.floor(Math.random()*10)+2; }
 function reBJ(){
@@ -169,7 +205,6 @@ window.bjDo=(a)=>{
 };
 function endBJ(){ document.getElementById('bj-ctrl').style.display='none'; }
 
-// 5. АДМІНКА ТА ТОП
 function loadAdmin() {
     db.ref('players').on('value', snap => {
         let h = ""; snap.forEach(c => {
