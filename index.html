@@ -3,27 +3,12 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-    <title>BEARS CASINO ONLINE</title>
+    <title>BEARS CASINO</title>
+    <link rel="stylesheet" href="style.css">
+    
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
-
-    <style>
-        :root { --bg: #0d0214; --accent: #ffb703; --glass: rgba(255,255,255,0.08); --border: rgba(255,255,255,0.15); --success: #00f5a0; --error: #ff4d6d; --rare: #3b82f6; }
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: sans-serif; }
-        body { margin:0; min-height:100vh; background:var(--bg); color:#fff; padding-bottom: 100px; }
-        header { display:flex; justify-content:space-between; align-items:center; padding:15px; background:rgba(13,2,20,0.9); backdrop-filter:blur(10px); border-bottom:1px solid var(--border); position:sticky; top:0; z-index:100; }
-        .bal-card { background:rgba(255,183,3,0.15); padding:8px 15px; border-radius:15px; border:1px solid var(--accent); color:var(--accent); font-weight:900; }
-        .container { max-width:450px; margin:0 auto; padding:15px; display:flex; flex-direction:column; gap:15px; }
-        .glass { background:var(--glass); backdrop-filter:blur(15px); border-radius:25px; padding:20px; border:1px solid var(--border); }
-        .xp-bar { height:8px; background:rgba(0,0,0,0.3); border-radius:4px; margin:10px 0; overflow:hidden; }
-        .xp-fill { height:100%; background:var(--accent); width:0%; transition:0.5s; }
-        nav { position:fixed; bottom:15px; left:15px; right:15px; height:70px; background:rgba(20,5,30,0.95); border-radius:25px; display:flex; justify-content:space-around; align-items:center; border:1px solid var(--border); z-index:1000; }
-        .nav-tab { color:#8d99ae; font-size:11px; font-weight:800; text-align:center; flex:1; }
-        .nav-tab.active { color:var(--accent); }
-        .btn { background:linear-gradient(135deg, var(--accent), #fb8500); color:#000; width:100%; padding:15px; border:none; border-radius:18px; font-weight:900; cursor:pointer; margin-top:10px; }
-        .card-ui { display:inline-flex; width:35px; height:50px; background:#fff; color:#000; border-radius:6px; align-items:center; justify-content:center; font-weight:900; margin:2px; }
-    </style>
 </head>
 <body>
 
@@ -38,190 +23,50 @@
 <div class="container">
     <div id="v-main" class="page">
         <div class="glass" style="display:flex; align-items:center; gap:15px; margin-bottom:10px">
-            <div id="p-img" style="font-size:40px">🥚</div>
+            <div id="p-img" style="font-size:45px">🥚</div>
             <div style="flex:1">
-                <div id="p-rarity" style="font-size:9px; font-weight:900; background:#94a3b8; color:#000; padding:2px 6px; border-radius:4px; display:inline-block">НЕМАЄ</div>
+                <div id="p-rarity" style="font-size:9px; font-weight:900; background:#94a3b8; color:#000; padding:2px 6px; border-radius:4px; display:inline-block">ПУСТО</div>
                 <div id="p-name" style="font-weight:900; font-size:16px">Твій Пет</div>
                 <div class="xp-bar"><div id="xp-f" class="xp-fill"></div></div>
                 <div style="display:flex; justify-content:space-between; font-size:11px">
-                    <span>Множник: <span id="p-m" style="color:var(--accent)">x1.0</span></span>
+                    <span>Бонус: <span id="p-m" style="color:var(--accent)">x1.0</span></span>
                     <span>Lvl: <span id="p-l">1</span></span>
                 </div>
             </div>
         </div>
 
         <div class="glass" style="text-align:center">
-            <select id="g-sel" onchange="updUI()" style="width:100%; padding:10px; border-radius:10px; background:#000; color:#fff">
+            <select id="g-sel" onchange="updUI()">
                 <option value="dice">🎲 Кубик</option>
-                <option value="bj">🃏 Блекджек</option>
+                <option value="wheel">🎡 Колесо</option>
             </select>
-
-            <div id="ui-bj" style="display:none; margin:15px 0">
-                <div id="bj-dc"></div>
-                <hr style="opacity:0.1">
-                <div id="bj-pc"></div>
-                <div id="bj-b" style="display:none; gap:10px; margin-top:10px">
-                    <button class="btn" onclick="bjDo('hit')">ЩЕ</button>
-                    <button class="btn" style="background:var(--error)" onclick="bjDo('stand')">СТОП</button>
-                </div>
-            </div>
-
-            <input type="number" id="bet-a" value="100" style="width:100%; padding:10px; margin-top:10px; background:#000; color:#fff; border:1px solid var(--border); border-radius:10px">
+            <div id="ui-wheel" style="display:none"><div class="w-wrap"><div class="marker"></div><div id="w-obj" class="w-main"></div></div></div>
+            <input type="number" id="bet-a" value="100">
             <button class="btn" id="b-play" onclick="play()">ГРАТИ</button>
-            <div id="g-stat" style="margin-top:10px; font-weight:900"></div>
+            <div id="g-stat" style="margin-top:10px; font-weight:900; min-height:20px"></div>
         </div>
     </div>
 
     <div id="v-shop" class="page" style="display:none">
         <div class="glass">
             <h3>🛒 МАГАЗИН</h3>
-            <button class="btn" onclick="buy('egg', 2500)">Купити Яйце (2500 BB)</button>
-            <button class="btn" style="background:var(--success)" onclick="buy('food', 1000)">Купити Корм (1000 BB)</button>
+            <div class="shop-item"><div>Дерев'яне Яйце</div><button class="btn" style="width:auto" onclick="buy('egg_wood', 1000)">1k</button></div>
+            <div class="shop-item"><div>Залізне Яйце</div><button class="btn" style="width:auto; background:#94a3b8" onclick="buy('egg_iron', 5000)">5k</button></div>
+            <div class="shop-item"><div>Діамантове Яйце</div><button class="btn" style="width:auto; background:var(--rare)" onclick="buy('egg_diamond', 20000)">20k</button></div>
         </div>
     </div>
 
     <div id="v-top" class="page" style="display:none">
-        <div class="glass">
-            <h3>🏆 ЛІДЕРБОРД</h3>
-            <div id="leaderboard">Завантаження...</div>
-        </div>
+        <div class="glass"><h3>🏆 ТОП</h3><div id="leaderboard">...</div></div>
     </div>
 </div>
 
 <nav>
     <div class="nav-tab active" onclick="tab('main', this)">🎮 Гра</div>
-    <div class="nav-tab" onclick="tab('shop', this)">🛒 Шоп</div>
+    <div class="nav-tab" onclick="tab('shop', this)">🥚 Шоп</div>
     <div class="nav-tab" onclick="tab('top', this)">🏆 Топ</div>
 </nav>
 
-<script>
-// ТВОЇ КЛЮЧІ
-const firebaseConfig = {
-  apiKey: "AIzaSyD7F2lrec5XWyMWG7J6",
-  authDomain: "bearscasino-bcded.firebaseapp.com",
-  projectId: "bearscasino-bcded",
-  storageBucket: "bearscasino-bcded.appspot.com",
-  messagingSenderId: "826765969101",
-  appId: "1:826765969101:web:ee5e5d3",
-  databaseURL: "https://bearscasino-bcded-default-rtdb.europe-west1.firebasedatabase.app"
-};
-
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
-const tg = window.Telegram.WebApp;
-const user = tg.initDataUnsafe?.user || { id: 'test', first_name: 'Гравець' };
-const userId = user.id;
-
-let s = { b: 5000, x: 0, r: 1, name: user.first_name, p: null };
-
-// Головна функція малювання екрану
-function ren() {
-    document.getElementById('bal-val').textContent = Math.floor(s.b).toLocaleString();
-    document.getElementById('u-rank').textContent = "РАНГ: " + s.r;
-    document.getElementById('u-name').textContent = s.name;
-    document.getElementById('xp-f').style.width = (s.x / (s.r * 1000) * 100) + "%";
-
-    if(s.p) {
-        document.getElementById('p-img').textContent = s.p.s;
-        document.getElementById('p-name').textContent = s.p.n;
-        document.getElementById('p-l').textContent = s.p.lvl;
-        document.getElementById('p-m').textContent = "x" + (s.p.m + (s.p.lvl * 0.1)).toFixed(1);
-        document.getElementById('p-rarity').textContent = s.p.r;
-        document.getElementById('p-rarity').style.background = s.p.c;
-    }
-}
-
-// Завантаження з бази
-db.ref('players/' + userId).on('value', (snap) => {
-    if(snap.exists()) { s = snap.val(); ren(); }
-    else { save(); }
-});
-
-// Функція збереження + оновлення
-function save() {
-    db.ref('players/' + userId).set(s);
-    ren(); // МАЛЮЄМО ВІДРАЗУ
-}
-
-function tab(id, el) {
-    document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
-    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-    document.getElementById('v-'+id).style.display = 'block';
-    el.classList.add('active');
-}
-
-// МАГАЗИН
-function buy(type, cost) {
-    if(s.b < cost) return alert("Немає BB!");
-    s.b -= cost;
-    if(type === 'egg') {
-        const pets = [{n:'Жаба', s:'🐸', r:'Common', m:1.1, c:'#94a3b8'}, {n:'Кіт', s:'🐱', r:'Rare', m:1.5, c:'#3b82f6'}];
-        s.p = {...pets[Math.random()>0.7?1:0], lvl:1};
-    } else if(s.p) { s.p.lvl++; }
-    save();
-}
-
-// ГРА
-let bj = { p:[], d:[], bt:0 };
-function play() {
-    let bt = parseInt(document.getElementById('bet-a').value);
-    if(bt <= 0 || bt > s.b) return;
-    let g = document.getElementById('g-sel').value;
-
-    if(g === 'dice') {
-        let win = Math.random() > 0.6;
-        if(win) { 
-            let gain = Math.floor(bt * (s.p ? (s.p.m + s.p.lvl*0.1) : 1));
-            s.b += gain; s.x += 100;
-            document.getElementById('g-stat').innerHTML = "<span style='color:var(--success)'>ВИГРАШ!</span>";
-        } else {
-            s.b -= bt;
-            document.getElementById('g-stat').innerHTML = "<span style='color:var(--error)'>ПРОГРАШ</span>";
-        }
-        if(s.x >= s.r*1000) { s.x=0; s.r++; }
-        save();
-    } else if(g === 'bj') {
-        bj = { p:[c(),c()], d:[c()], bt:bt };
-        document.getElementById('ui-bj').style.display = 'block';
-        document.getElementById('bj-b').style.display = 'flex';
-        document.getElementById('b-play').style.display = 'none';
-        renBJ();
-    }
-}
-
-function c() { return Math.floor(Math.random()*10)+2; }
-function renBJ() {
-    document.getElementById('bj-pc').innerHTML = bj.p.map(x=>`<div class="card-ui">${x}</div>`).join('');
-    document.getElementById('bj-dc').innerHTML = `<div class="card-ui">${bj.d[0]}</div><div class="card-ui" style="background:#444">?</div>`;
-    if(bj.p.reduce((a,b)=>a+b,0) > 21) resBJ(false);
-}
-
-function bjDo(a) {
-    if(a==='hit') { bj.p.push(c()); renBJ(); }
-    else {
-        while(bj.d.reduce((a,b)=>a+b,0)<17) bj.d.push(c());
-        let ps = bj.p.reduce((a,b)=>a+b,0), ds = bj.d.reduce((a,b)=>a+b,0);
-        resBJ(ds > 21 || ps > ds);
-    }
-}
-
-function resBJ(w) {
-    if(w) s.b += bj.bt; else s.b -= bj.bt;
-    document.getElementById('ui-bj').style.display = 'none';
-    document.getElementById('b-play').style.display = 'block';
-    save();
-}
-
-function updUI() {
-    document.getElementById('ui-bj').style.display = document.getElementById('g-sel').value==='bj'?'block':'none';
-}
-
-// ТОП
-db.ref('players').orderByChild('b').limitToLast(5).on('value', (snap) => {
-    let html = "";
-    snap.forEach(p => { let v = p.val(); html = `<div>${v.name}: ${Math.floor(v.b)}</div>` + html; });
-    document.getElementById('leaderboard').innerHTML = html;
-});
-</script>
+<script src="script.js"></script>
 </body>
 </html>
