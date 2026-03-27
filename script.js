@@ -46,18 +46,25 @@ const CASES = {
     ]}
 };
 
-let s = { b: 10, x: 0, r: 1, name: myName, p: null, inv: [], v: 2.5 };
+// Початкові дані
+let s = { b: 10, x: 0, r: 1, name: myName, p: null, inv: [], v: 2.6 };
 
+// ЛОГІКА ЗАВАНТАЖЕННЯ (БЕЗ СКЛАДНОГО СКИНУ)
 db.ref('players/' + myId).on('value', snap => {
     let d = snap.val();
     if(d) {
-        if(!d.v || d.v < 2.5) {
-            s = { b: 10, x: 0, r: 1, name: myName, p: null, inv: [], v: 2.5 };
-            db.ref('players/' + myId).set(s);
-        } else {
-            s = d; if(!s.inv) s.inv = [];
+        // Якщо гравець вже є, просто копіюємо його дані
+        s = d;
+        if(!s.inv) s.inv = [];
+        // Оновлюємо тільки версію, якщо вона стара, але гроші не чіпаємо
+        if(s.v !== 2.6) {
+            s.v = 2.6;
+            save();
         }
-    } else { db.ref('players/' + myId).set(s); }
+    } else {
+        // Тільки для абсолютно нових гравців ставимо 10 BB
+        db.ref('players/' + myId).set(s);
+    }
     ren();
 });
 
