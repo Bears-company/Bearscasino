@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
     <title>BEARS CASINO</title>
-    <link rel="stylesheet" href="style.css?v=2.5">
+    <link rel="stylesheet" href="style.css?v=2.6">
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -42,7 +42,15 @@
                 <option value="bj">🃏 Блекджек (x2.0)</option>
             </select>
             <div id="ui-dice" style="display:none;"><div class="dice-grid"></div></div>
-            <div id="ui-wheel" style="display:none; text-align:center"><div class="w-wrap"><div class="marker"></div><div id="w-obj" class="w-main"></div></div></div>
+            <div id="ui-wheel" style="display:none; text-align:center">
+                <div class="w-wrap"><div class="marker"></div><div id="w-obj" class="w-main"></div></div>
+                <div class="w-legend">
+                    <div class="leg-item"><div class="dot" style="background:var(--error)"></div> 0x</div>
+                    <div class="leg-item"><div class="dot" style="background:var(--success)"></div> 1.25x</div>
+                    <div class="leg-item"><div class="dot" style="background:#3b82f6"></div> 1.5x</div>
+                    <div class="leg-item"><div class="dot" style="background:#f59e0b"></div> 1.75x</div>
+                </div>
+            </div>
             <div id="ui-bj" style="display:none; text-align:center; margin:15px 0;">
                 <div id="bj-dc" style="display:flex; justify-content:center; gap:5px; margin-bottom:10px"></div>
                 <div id="bj-pc" style="display:flex; justify-content:center; gap:5px"></div>
@@ -83,6 +91,6 @@
     <div id="admin-tab" class="nav-tab" style="display:none" onclick="tab('admin', this)">⚡</div>
 </nav>
 
-<script src="script.js?v=2.5"></script>
+<script src="script.js?v=2.6"></script>
 </body>
 </html>

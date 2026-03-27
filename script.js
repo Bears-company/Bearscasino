@@ -46,25 +46,15 @@ const CASES = {
     ]}
 };
 
-// Початкові дані
 let s = { b: 10, x: 0, r: 1, name: myName, p: null, inv: [], v: 2.6 };
+let selN_val = 1;
 
-// ЛОГІКА ЗАВАНТАЖЕННЯ (БЕЗ СКЛАДНОГО СКИНУ)
 db.ref('players/' + myId).on('value', snap => {
     let d = snap.val();
     if(d) {
-        // Якщо гравець вже є, просто копіюємо його дані
-        s = d;
-        if(!s.inv) s.inv = [];
-        // Оновлюємо тільки версію, якщо вона стара, але гроші не чіпаємо
-        if(s.v !== 2.6) {
-            s.v = 2.6;
-            save();
-        }
-    } else {
-        // Тільки для абсолютно нових гравців ставимо 10 BB
-        db.ref('players/' + myId).set(s);
-    }
+        s = d; if(!s.inv) s.inv = [];
+        if(s.v !== 2.6) { s.v = 2.6; save(); }
+    } else { db.ref('players/' + myId).set(s); }
     ren();
 });
 
@@ -186,14 +176,13 @@ function loadAdmin() {
 }
 window.setB = (id) => { let v = prompt("Баланс:"); if(v !== null) db.ref('players/'+id+'/b').set(Number(v)); };
 
-let selN_val = 1;
 window.updUI = () => {
     let g = document.getElementById('g-sel').value;
     document.getElementById('ui-dice').style.display = (g==='dice')?'block':'none';
     document.getElementById('ui-wheel').style.display = (g==='wheel')?'block':'none';
     document.getElementById('ui-bj').style.display = (g==='bj')?'block':'none';
-    if(g === 'dice' && document.querySelector('.dice-grid').innerHTML === "") {
-        let h = ""; for(let i=1; i<=6; i++) h += `<button class="n-btn ${i===1?'active':''}" onclick="selN(${i}, this)">${i}</button>`;
+    if(g === 'dice') {
+        let h = ""; for(let i=1; i<=6; i++) h += `<button class="n-btn ${i===selN_val?'active':''}" onclick="selN(${i}, this)">${i}</button>`;
         document.querySelector('.dice-grid').innerHTML = h;
     }
 };
@@ -203,20 +192,21 @@ window.play = () => {
     let bt = parseInt(document.getElementById('bet-a').value);
     if(bt > s.b || bt <= 0 || isNaN(bt)) return alert("Мало BB!");
     let g = document.getElementById('g-sel').value;
-    if(g==='f50') { let w=Math.random()>0.5; res(w, bt, 1.45, w?"Перемога!":"Програш"); }
+    document.getElementById('g-stat').innerHTML = "⏳ Очікуємо...";
+    if(g==='f50') { let w=Math.random()>0.5; res(w, bt, 1.45, w?"Орел!":"Решка"); }
     else if(g==='dice') { let r=Math.floor(Math.random()*6)+1; res(r===selN_val, bt, 1.45, `Випало 🎲 ${r}`); }
     else if(g==='wheel') {
-        let wheel = document.getElementById('w-obj');
-        wheel.style.transition = "none";
-        wheel.style.transform = "rotate(0deg)";
+        let wheel = document.getElementById('w-obj'); wheel.style.transition = "none"; wheel.style.transform = "rotate(0deg)";
         setTimeout(() => {
             wheel.style.transition = "transform 4s cubic-bezier(0.1, 0, 0.1, 1)";
-            let deg = 1800 + Math.floor(Math.random() * 360);
-            wheel.style.transform = `rotate(${deg}deg)`;
+            let deg = 1800 + Math.floor(Math.random() * 360); wheel.style.transform = `rotate(${deg}deg)`;
             setTimeout(() => {
-                let p = Math.random() * 100;
-                let m = (p < 45) ? 0 : (p < 80) ? 1.25 : (p < 95) ? 1.5 : 1.75;
-                res(m > 0, bt, m, "Колесо Фортуни!");
+                let p = Math.random() * 100; let m, txt;
+                if(p < 45) { m = 0; txt = "Червоний (0x)"; }
+                else if(p < 80) { m = 1.25; txt = "Зелений (1.25x)"; }
+                else if(p < 95) { m = 1.5; txt = "Синій (1.5x)"; }
+                else { m = 1.75; txt = "Золотий (1.75x)"; }
+                res(m > 0, bt, m, txt);
             }, 4100);
         }, 50);
     }
