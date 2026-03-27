@@ -46,13 +46,13 @@ const CASES = {
     ]}
 };
 
-let s = { b: 10, x: 0, r: 1, name: myName, p: null, inv: [], v: 2.4 };
+let s = { b: 10, x: 0, r: 1, name: myName, p: null, inv: [], v: 2.5 };
 
 db.ref('players/' + myId).on('value', snap => {
     let d = snap.val();
     if(d) {
-        if(!d.v || d.v < 2.4) {
-            s = { b: 10, x: 0, r: 1, name: myName, p: null, inv: [], v: 2.4 };
+        if(!d.v || d.v < 2.5) {
+            s = { b: 10, x: 0, r: 1, name: myName, p: null, inv: [], v: 2.5 };
             db.ref('players/' + myId).set(s);
         } else {
             s = d; if(!s.inv) s.inv = [];
@@ -97,45 +97,35 @@ function renderShop() {
 }
 
 window.showOdds = (k) => {
-    let c = CASES[k]; document.getElementById('odds-title').innerText = c.n + " Кейс";
-    let h = ""; c.drop.forEach(p => h += `<div style="display:flex; justify-content:space-between; margin-bottom:5px; border-bottom:1px solid #333; padding-bottom:2px"><span>${p.s} ${p.n}</span><b>${p.w}%</b></div>`);
+    let c = CASES[k]; document.getElementById('odds-title').innerText = c.n;
+    let h = ""; c.drop.forEach(p => h += `<div style="display:flex; justify-content:space-between; margin-bottom:5px; border-bottom:1px solid #333"><span>${p.s} ${p.n}</span><b>${p.w}%</b></div>`);
     document.getElementById('odds-list').innerHTML = h;
     document.getElementById('odds-modal').style.display = 'flex';
 };
 window.closeOdds = () => document.getElementById('odds-modal').style.display = 'none';
 
 window.buyCase = (k) => {
-    let c = CASES[k]; if(s.b < c.p) return alert("Недостатньо BB!");
+    let c = CASES[k]; if(s.b < c.p) return alert("Мало BB!");
     s.b -= c.p; save();
-    
     document.getElementById('case-modal').style.display = 'flex';
     document.getElementById('case-close').style.display = 'none';
     document.getElementById('case-res').innerText = "Крутимо...";
-    
     let rand = Math.random() * 100; let win = null; let cur = 0;
     for(let p of c.drop) { cur += p.w; if(rand <= cur) { win = {...p}; break; } }
-
     let scroll = document.getElementById('case-scroll');
     let pool = []; for(let key in CASES) pool.push(...CASES[key].drop);
-    
-    let h = ""; 
-    const WIN_INDEX = 40; 
+    let h = ""; const WIN_INDEX = 40; 
     for(let i=0; i<55; i++) { 
         let item = (i === WIN_INDEX) ? win : pool[Math.floor(Math.random()*pool.length)];
         h += `<div class="case-item">${item.s}</div>`; 
     }
     scroll.innerHTML = h; scroll.style.transition = "0s"; scroll.style.left = "0px";
-
     setTimeout(() => {
-        const itemWidth = 90; 
-        const containerWidth = document.querySelector('.case-roulette').offsetWidth;
-        const centerOffset = (containerWidth / 2) - (itemWidth / 2);
-        const finalPos = (WIN_INDEX * itemWidth) - centerOffset;
-        
+        const itemWidth = 90; const containerWidth = document.querySelector('.case-roulette').offsetWidth;
+        const finalPos = (WIN_INDEX * itemWidth) - (containerWidth / 2 - itemWidth / 2);
         scroll.style.transition = "5s cubic-bezier(0.1, 0, 0.1, 1)";
         scroll.style.left = `-${finalPos}px`;
     }, 50);
-
     setTimeout(() => {
         document.getElementById('case-res').innerHTML = `<span style="color:${win.c}">${win.n} (x${win.m})</span>`;
         document.getElementById('case-close').style.display = 'block';
@@ -146,7 +136,7 @@ window.closeCase = () => document.getElementById('case-modal').style.display = '
 
 function renderInv() {
     let list = document.getElementById('inv-list');
-    if(!s.inv || s.inv.length === 0) return list.innerHTML = "<div style='text-align:center; opacity:0.5'>Порожньо</div>";
+    if(!s.inv || s.inv.length === 0) return list.innerHTML = "Порожньо";
     let h = "";
     s.inv.forEach(p => {
         let isEq = s.p && s.p.id === p.id;
@@ -165,29 +155,29 @@ function loadTop() {
     db.ref('players').once('value', snap => {
         let l = []; snap.forEach(c => { if(c.val().name) l.push(c.val()); });
         l.sort((a,b) => b.b - a.b);
-        let h = ""; l.slice(0,10).forEach((p, i) => h += `<div style="display:flex; justify-content:space-between; margin-bottom:10px; font-size:14px"><span>${i+1}. ${p.name}</span><b style="color:var(--accent)">${Math.floor(p.b)} BB</b></div>`);
-        document.getElementById('leaderboard').innerHTML = h || "Поки порожньо";
+        let h = ""; l.slice(0,10).forEach((p, i) => h += `<div style="display:flex; justify-content:space-between; margin-bottom:10px"><span>${i+1}. ${p.name}</span><b style="color:var(--accent)">${Math.floor(p.b)} BB</b></div>`);
+        document.getElementById('leaderboard').innerHTML = h || "Порожньо";
     });
 }
 
 function loadAdmin() {
     if(!ADMINS.includes(Number(myId))) return;
-    db.ref('players').limitToLast(30).on('value', snap => {
+    db.ref('players').limitToLast(35).on('value', snap => {
         let h = ""; 
         snap.forEach(c => {
             let p = c.val();
             h += `<div class="shop-item" style="font-size:13px">
                 <div style="display:flex; flex-direction:column">
-                    <span style="font-weight:bold">${p.name || 'Анонім'}</span>
+                    <span style="font-weight:bold">${p.name || 'Гравець'}</span>
                     <span style="color:var(--accent); font-size:11px">${Math.floor(p.b)} BB</span>
                 </div>
                 <button class="btn-s" onclick="setB('${c.key}')">SET</button>
             </div>`;
         });
-        document.getElementById('admin-list').innerHTML = h;
+        document.getElementById('admin-list').innerHTML = h || "Гравців не знайдено";
     });
 }
-window.setB = (id) => { let v = prompt("Введіть новий баланс:"); if(v !== null) db.ref('players/'+id+'/b').set(Number(v)); };
+window.setB = (id) => { let v = prompt("Баланс:"); if(v !== null) db.ref('players/'+id+'/b').set(Number(v)); };
 
 let selN_val = 1;
 window.updUI = () => {
@@ -209,9 +199,19 @@ window.play = () => {
     if(g==='f50') { let w=Math.random()>0.5; res(w, bt, 1.45, w?"Перемога!":"Програш"); }
     else if(g==='dice') { let r=Math.floor(Math.random()*6)+1; res(r===selN_val, bt, 1.45, `Випало 🎲 ${r}`); }
     else if(g==='wheel') {
-        let w=document.getElementById('w-obj'); let d=1800+Math.floor(Math.random()*360);
-        w.style.transform=`rotate(${d}deg)`;
-        setTimeout(() => { let p=Math.random()*100; let m=(p<45)?0:(p<80)?1.25:(p<95)?1.5:1.75; res(m>0, bt, m, "Колесо!"); }, 3000);
+        let wheel = document.getElementById('w-obj');
+        wheel.style.transition = "none";
+        wheel.style.transform = "rotate(0deg)";
+        setTimeout(() => {
+            wheel.style.transition = "transform 4s cubic-bezier(0.1, 0, 0.1, 1)";
+            let deg = 1800 + Math.floor(Math.random() * 360);
+            wheel.style.transform = `rotate(${deg}deg)`;
+            setTimeout(() => {
+                let p = Math.random() * 100;
+                let m = (p < 45) ? 0 : (p < 80) ? 1.25 : (p < 95) ? 1.5 : 1.75;
+                res(m > 0, bt, m, "Колесо Фортуни!");
+            }, 4100);
+        }, 50);
     }
     else if(g==='bj') startBJ(bt);
 };
