@@ -65,16 +65,44 @@ db.ref('players/' + myId).on('value', snap => {
 });
 function save() { db.ref('players/' + myId).set(s); }
 
+const XP_PER_LEVEL = 1000;
+
+function checkPetLevelUp() {
+    if(!s.p) return;
+    let needed = (s.p.lvl || 1) * XP_PER_LEVEL;
+    if(s.x >= needed) {
+        s.x -= needed;
+        s.p.lvl = (s.p.lvl || 1) + 1;
+        s.p.m = Math.round((s.p.m + 0.005) * 1000) / 1000;
+        // Sync pet in inventory too
+        let idx = s.inv.findIndex(i => i.id === s.p.id);
+        if(idx !== -1) s.inv[idx] = s.p;
+        save();
+        showLevelUpToast(s.p);
+    }
+}
+
+function showLevelUpToast(pet) {
+    let toast = document.createElement('div');
+    toast.innerHTML = `${pet.s} <b>${pet.n}</b> — LVL ${pet.lvl}! <span style="color:var(--accent)">+0.005 бонус</span>`;
+    toast.style.cssText = `position:fixed;top:80px;left:50%;transform:translateX(-50%);background:rgba(20,25,32,0.95);border:1px solid var(--accent);color:white;padding:12px 20px;border-radius:12px;font-size:14px;z-index:9999;box-shadow:0 0 20px rgba(88,166,255,0.3);text-align:center;animation:fadeInDown 0.4s ease`;
+    document.body.appendChild(toast);
+    setTimeout(()=>toast.remove(), 3000);
+}
+
 function ren() {
     let disp = Number.isInteger(s.b) ? s.b : s.b.toFixed(2);
     document.getElementById('bal-val').innerText = disp;
-    document.getElementById('u-rank').innerText = "РАНГ: " + s.r;
-    document.getElementById('xp-f').style.width = Math.min((s.x/(s.r*1000)*100), 100) + "%";
+
+    // XP bar — відображає прогрес до наступного рівня пета
+    let petLvl = s.p ? (s.p.lvl || 1) : 1;
+    let needed = petLvl * XP_PER_LEVEL;
+    document.getElementById('xp-f').style.width = Math.min((s.x / needed * 100), 100) + "%";
     
     if(s.p) {
         document.getElementById('p-img').innerText = s.p.s;
         document.getElementById('p-name').innerText = s.p.n;
-        document.getElementById('p-m').innerText = s.p.m.toFixed(2);
+        document.getElementById('p-m').innerText = s.p.m.toFixed(3);
         document.getElementById('p-l').innerText = s.p.lvl || 1;
         let t = document.getElementById('p-rarity'); 
         t.innerText = s.p.r; t.style.background = s.p.c;
@@ -133,17 +161,23 @@ function renderShop() {
         list.innerHTML = h;
     } else {
         list.innerHTML = tabs + '<div id="m-list" class="glass">Завантаження ринку...</div>';
-        db.ref('market').on('value', snap => {
+        db.ref('market').once('value', snap => {
             let h = "";
             snap.forEach(child => {
                 let lot = child.val();
-                if(lot.sellerId == myId) return;
+                if(!lot || !lot.pet) return;
+                if(String(lot.sellerId) === String(myId)) return;
                 h += `<div class="market-item">
-                    <div><span style="color:${lot.pet.c}">${lot.pet.s} ${lot.pet.n}</span><br><small>Від: ${lot.sellerName}</small></div>
-                    <button class="btn-s" style="background:var(--success)" onclick="buyFromMarket('${child.key}')">${lot.price} BB</button>
+                    <div>
+                        <span style="color:${lot.pet.c}">${lot.pet.s} ${lot.pet.n}</span>
+                        <span style="font-size:10px; margin-left:6px; color:#8d99ae">LVL ${lot.pet.lvl||1}</span>
+                        <br><small style="color:#8d99ae">Від: ${lot.sellerName} • Бонус: x${lot.pet.m.toFixed(3)}</small>
+                    </div>
+                    <button class="btn-s" style="background:var(--success); min-width:70px" onclick="buyFromMarket('${child.key}')">${lot.price} BB</button>
                 </div>`;
             });
-            document.getElementById('m-list').innerHTML = h || "На ринку порожньо";
+            let el = document.getElementById('m-list');
+            if(el) el.innerHTML = h || '<div style="text-align:center; color:#8d99ae; padding:20px">На ринку порожньо</div>';
         });
     }
 }
@@ -151,11 +185,15 @@ function renderShop() {
 window.buyFromMarket = (lotId) => {
     db.ref('market/' + lotId).once('value', snap => {
         let lot = snap.val();
-        if(!lot || s.b < lot.price) return alert("Помилка купівлі!");
-        s.b -= lot.price; s.inv.push(lot.pet); save();
+        if(!lot) return alert("Лот вже недоступний!");
+        if(s.b < lot.price) return alert(`Недостатньо BB! Потрібно: ${lot.price}`);
+        s.b -= lot.price;
+        s.inv.push(lot.pet);
+        save();
         db.ref('players/' + lot.sellerId + '/b').transaction(c => (c || 0) + lot.price);
         db.ref('market/' + lotId).remove();
-        alert("Куплено!");
+        alert(`✅ Куплено ${lot.pet.s} ${lot.pet.n}!`);
+        renderShop(); // refresh market view
     });
 };
 
@@ -228,8 +266,9 @@ function res(win, bt, m, msg) {
     let bon = s.p ? s.p.m : 1;
     if(win) {
         let winAmount = (bt * m - bt) * bon;
-        s.b += winAmount; s.x += Math.floor(bt/2);
+        s.b += winAmount; s.x += Math.floor(bt / 2);
         document.getElementById('g-stat').innerHTML = `<span style="color:var(--success)">+${winAmount.toFixed(2)} BB</span><br><small>${msg}</small>`;
+        checkPetLevelUp();
     } else {
         s.b -= bt;
         document.getElementById('g-stat').innerHTML = `<span style="color:var(--error)">-${bt.toFixed(2)} BB</span><br><small>${msg}</small>`;
