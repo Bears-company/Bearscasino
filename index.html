@@ -14,7 +14,7 @@
 <header>
     <div>
         <div style="font-weight:900; font-size:18px; color:white; letter-spacing:1px">BEARS CASINO</div>
-        <div id="u-rank" style="font-size:10px; color:var(--accent); font-weight:bold;">PET EVOLUTION</div>
+        <div style="font-size:10px; color:var(--accent); font-weight:bold;">PET EVOLUTION</div>
     </div>
     <div class="bal-card"><span id="bal-val">0</span> BB</div>
 </header>
@@ -36,17 +36,21 @@
 
     <div id="v-main" class="page">
         <div class="glass">
-            <select id="g-sel" onchange="updUI()">
+            <select id="g-sel" class="game-select" onchange="updUI()">
                 <option value="f50">⚖️ 50/50 (x1.55)</option>
                 <option value="dice">🎲 Кубик (x2.05)</option>
-                <option value="wheel">🎡 Колесо (x0 - x2.0)</option>
+                <option value="wheel">🎡 Колесо (До x2.0)</option>
                 <option value="bj">🃏 Блекджек (x2.0)</option>
             </select>
 
             <div id="ui-dice" style="display:none; margin:15px 0;">
                 <div class="dice-grid">
-                    <button class="d-btn" onclick="selN(1)">1</button><button class="d-btn" onclick="selN(2)">2</button><button class="d-btn" onclick="selN(3)">3</button>
-                    <button class="d-btn" onclick="selN(4)">4</button><button class="d-btn" onclick="selN(5)">5</button><button class="d-btn" onclick="selN(6)">6</button>
+                    <button class="d-btn" onclick="selN(1, this)">1</button>
+                    <button class="d-btn" onclick="selN(2, this)">2</button>
+                    <button class="d-btn" onclick="selN(3, this)">3</button>
+                    <button class="d-btn" onclick="selN(4, this)">4</button>
+                    <button class="d-btn" onclick="selN(5, this)">5</button>
+                    <button class="d-btn" onclick="selN(6, this)">6</button>
                 </div>
             </div>
 
@@ -63,7 +67,7 @@
                 </div>
             </div>
 
-            <div id="ui-bj" style="display:none; text-align:center; margin:15px 0;">
+            <div id="ui-bj" style="display:none; margin:15px 0;">
                 <div id="bj-dc" class="card-row"></div>
                 <div id="bj-pc" class="card-row"></div>
                 <div id="bj-ctrl" style="display:none; gap:10px; justify-content:center; margin-top:15px;">
@@ -72,7 +76,7 @@
                 </div>
             </div>
 
-            <input type="number" id="bet-a" value="10" step="1">
+            <input type="number" id="bet-a" value="10" class="bet-input">
             <button class="btn" onclick="play()">ГРАТИ</button>
             <div id="g-stat" style="text-align:center; margin-top:10px; font-weight:bold;"></div>
         </div>
@@ -80,23 +84,30 @@
 
     <div id="v-shop" class="page" style="display:none">
         <div class="shop-tabs">
-            <div class="s-tab active" onclick="setShop('cases', this)">📦 Кейси</div>
-            <div class="s-tab" onclick="setShop('market', this)">🛒 Ринок</div>
+            <button class="s-tab active" onclick="setShop('cases', this)">📦 Кейси</button>
+            <button class="s-tab" onclick="setShop('market', this)">🛒 Ринок</button>
         </div>
         <div id="shop-list" class="glass"></div>
     </div>
 
     <div id="v-inv" class="page" style="display:none">
         <div class="glass">
-            <h3>🎒 ВАШІ ПЕТИ</h3>
+            <h3 style="margin:0 0 10px 0">🎒 ВАШІ ПЕТИ</h3>
             <div id="inv-list"></div>
         </div>
     </div>
 
     <div id="v-top" class="page" style="display:none">
         <div class="glass">
-            <h3 style="color:var(--warning)">🏆 ТОП ГРАВЦІВ</h3>
+            <h3 style="margin:0 0 10px 0; color:var(--warning)">🏆 ТОП ГРАВЦІВ</h3>
             <div id="leaderboard"></div>
+        </div>
+    </div>
+
+    <div id="v-admin" class="page" style="display:none">
+        <div class="glass">
+            <h3 style="margin:0 0 10px 0; color:var(--accent)">⚡ АДМІН-ПАНЕЛЬ</h3>
+            <div id="admin-list"></div>
         </div>
     </div>
 </div>
@@ -106,6 +117,7 @@
     <div class="nav-tab" onclick="tab('shop', this)">📦</div>
     <div class="nav-tab" onclick="tab('inv', this)">🎒</div>
     <div class="nav-tab" onclick="tab('top', this)">🏆</div>
+    <div id="admin-tab" class="nav-tab" style="display:none" onclick="tab('admin', this)">⚡</div>
 </nav>
 
 <script src="script.js"></script>

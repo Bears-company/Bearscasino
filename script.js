@@ -1,4 +1,3 @@
-// Конфігурація та ініціалізація Firebase (залиш свою)
 const firebaseConfig = {
     apiKey: "AIzaSyD7F2lrec5XWyMWG7J0uW6IhEKD-LJ4jRY",
     authDomain: "bearscasino-bcded.firebaseapp.com",
@@ -9,6 +8,7 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 const tg = window.Telegram.WebApp;
 
+const ADMINS = [2067230442, 8216362223];
 const myId = tg.initDataUnsafe?.user?.id || 101; 
 const myName = tg.initDataUnsafe?.user?.first_name || "Гравець";
 
@@ -17,7 +17,6 @@ let shopMode = 'cases';
 let selN_val = 1;
 let bj = null;
 
-// Завантаження даних
 db.ref('players/' + myId).on('value', snap => {
     let d = snap.val();
     if(d) { s = d; if(!s.inv) s.inv = []; } 
@@ -37,9 +36,9 @@ function ren() {
         document.getElementById('xp-num').innerText = `${s.p.xp||0}/${nx}`;
         let t = document.getElementById('p-rarity'); t.innerText = s.p.r; t.style.background = s.p.c;
     }
+    if(ADMINS.includes(Number(myId))) document.getElementById('admin-tab').style.display = 'block';
 }
 
-// Навігація
 window.tab = (t, el) => {
     document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
     document.querySelectorAll('.nav-tab').forEach(n => n.classList.remove('active'));
@@ -48,12 +47,12 @@ window.tab = (t, el) => {
     if(t==='shop') renderShop();
     if(t==='inv') renderInv();
     if(t==='top') loadTop();
+    if(t==='admin') loadAdmin();
 };
 
-// --- РИНОК ТА МАГАЗИН ---
-window.setShop = (m, el) => {
-    shopMode = m;
-    document.querySelectorAll('.s-tab').forEach(t => t.classList.remove('active'));
+window.setShop = (mode, el) => {
+    shopMode = mode;
+    document.querySelectorAll('.s-tab').forEach(btn => btn.classList.remove('active'));
     el.classList.add('active');
     renderShop();
 };
@@ -74,29 +73,46 @@ function renderShop() {
     }
 }
 
-window.sellPet = (idx) => {
-    let pr = prompt("Ціна продажу:");
-    if(!pr || isNaN(pr)) return;
-    let pet = s.inv[idx];
-    db.ref('market').push({p: pet, price: Number(pr), seller: myId});
-    s.inv.splice(idx, 1);
-    if(s.p && s.p.id === pet.id) s.p = null;
-    db.ref('players/'+myId).set(s);
-    renderInv();
+window.loadAdmin = () => {
+    db.ref('players').once('value', snap => {
+        let h = "";
+        snap.forEach(c => {
+            let p = c.val();
+            h += `<div class="market-item"><span>${p.name} (ID: ${c.key})</span><button class="btn-s" onclick="mathB('${c.key}')">БАЛАНС</button></div>`;
+        });
+        document.getElementById('admin-list').innerHTML = h;
+    });
 };
 
-// --- ІГРОВА ЛОГІКА ---
+window.mathB = (id) => {
+    let v = prompt("Введіть новий баланс:");
+    if(v !== null) db.ref('players/'+id+'/b').set(Number(v));
+};
+
 window.play = () => {
     let bt = parseFloat(document.getElementById('bet-a').value);
-    if(bt > s.b || bt <= 0) return alert("Недостатньо коштів!");
-    if(!s.p) return alert("Оберіть пета в інвентарі!");
-
+    if(bt > s.b || bt <= 0) return alert("Недостатньо BB!");
+    if(!s.p) return alert("Обери пета!");
     let g = document.getElementById('g-sel').value;
     if(g==='f50') res(Math.random()>0.5, bt, 1.55, "50/50");
     else if(g==='dice') res(Math.floor(Math.random()*6)+1 === selN_val, bt, 2.05, "Кубик");
     else if(g==='wheel') spinWheel(bt);
     else if(g==='bj') startBJ(bt);
 };
+
+function res(win, bt, m, msg) {
+    if(win) {
+        let w = (bt * m - bt) * s.p.m; s.b += w;
+        s.p.xp = (s.p.xp || 0) + Math.floor(bt);
+        let nx = Math.floor(1000 * Math.pow(1.2, (s.p.lvl||1)-1));
+        if(s.p.xp >= nx) { s.p.xp -= nx; s.p.lvl++; s.p.m += 0.005; }
+        document.getElementById('g-stat').innerHTML = `<span style="color:var(--success)">+${w.toFixed(1)} BB</span>`;
+    } else {
+        s.b -= bt;
+        document.getElementById('g-stat').innerHTML = `<span style="color:var(--error)">-${bt} BB</span>`;
+    }
+    db.ref('players/'+myId).set(s);
+}
 
 function spinWheel(bt) {
     let deg = 720 + Math.floor(Math.random()*360);
@@ -111,7 +127,6 @@ function spinWheel(bt) {
     }, 3000);
 }
 
-// Блекджек
 function startBJ(bt) {
     bj = {p:[dr(),dr()], d:[dr()], bt};
     document.getElementById('bj-ctrl').style.display='flex';
@@ -132,20 +147,6 @@ function finishBJ(w) {
     res(w, bj.bt, 2, "Блекджек");
 }
 
-function res(win, bt, m, msg) {
-    if(win) {
-        let w = (bt * m - bt) * s.p.m; s.b += w;
-        s.p.xp = (s.p.xp || 0) + Math.floor(bt);
-        let nx = Math.floor(1000 * Math.pow(1.2, (s.p.lvl||1)-1));
-        if(s.p.xp >= nx) { s.p.xp -= nx; s.p.lvl++; s.p.m += 0.005; }
-        document.getElementById('g-stat').innerHTML = `<span style="color:var(--success)">+${w.toFixed(1)} BB</span>`;
-    } else {
-        s.b -= bt;
-        document.getElementById('g-stat').innerHTML = `<span style="color:var(--error)">-${bt} BB</span>`;
-    }
-    db.ref('players/'+myId).set(s);
-}
-
 function loadTop() {
     db.ref('players').once('value', snap => {
         let a = []; snap.forEach(c => { if(c.val().name) a.push(c.val()); });
@@ -158,17 +159,15 @@ function loadTop() {
 
 function renderInv() {
     document.getElementById('inv-list').innerHTML = s.inv.map((p, i) => `
-        <div class="market-item">
-            <span>${p.s} ${p.n}</span>
-            <div style="display:flex; gap:5px">
-                <button class="btn-s" onclick="equip(${i})">${s.p?.id===p.id?'✅':'ВЗЯТИ'}</button>
-                <button class="btn-s" style="background:var(--warning)" onclick="sellPet(${i})">💰</button>
-            </div>
-        </div>
+        <div class="market-item"><span>${p.s} ${p.n}</span><button class="btn-s" onclick="equip(${i})">${s.p?.id===p.id?'✅':'ВЗЯТИ'}</button></div>
     `).join('');
 }
 window.equip = (i) => { s.p = s.inv[i]; db.ref('players/'+myId).set(s); renderInv(); };
-window.selN = (n) => { selN_val = n; document.querySelectorAll('.d-btn').forEach(b=>b.style.background='#30363d'); event.target.style.background='var(--accent)'; };
+window.selN = (n, el) => {
+    selN_val = n;
+    document.querySelectorAll('.d-btn').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+};
 window.updUI = () => {
     let g = document.getElementById('g-sel').value;
     document.getElementById('ui-dice').style.display = g==='dice'?'block':'none';
