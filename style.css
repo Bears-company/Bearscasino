@@ -1,74 +1,264 @@
-body{margin:0;background:#030508;color:white;font-family:sans-serif}
-
-header{
-display:flex;
-justify-content:space-between;
-padding:15px;
+/* ===== ОСНОВА ===== */
+:root {
+    --bg: #030508;
+    --accent: #58a6ff;
+    --glass: rgba(13, 17, 23, 0.7);
+    --glass-border: rgba(255, 255, 255, 0.06);
+    --text: #c9d1d9;
+    --success: #238636;
+    --error: #da3633;
+    --warning: #f59e0b;
 }
 
-.container{padding:10px}
-
-.glass{
-background:#111;
-padding:10px;
-border-radius:10px;
-margin-bottom:10px;
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: sans-serif;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
-.btn{
-width:100%;
-padding:10px;
-background:#58a6ff;
-border:none;
-border-radius:10px;
-color:white;
+/* ===== HEADER ===== */
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
 }
 
-.shop-tabs{display:flex}
-.s-tab{flex:1;padding:10px;background:#222;text-align:center}
-.s-tab.active{background:#58a6ff}
-
-.market-item{
-display:flex;
-justify-content:space-between;
-padding:10px;
-border-bottom:1px solid #333;
+.bal-card {
+    background: var(--glass);
+    padding: 8px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--glass-border);
+    font-weight: bold;
 }
 
-nav{
-position:fixed;
-bottom:0;
-width:100%;
-display:flex;
-background:#000;
+/* ===== КОНТЕЙНЕР ===== */
+.container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 15px;
+    padding-bottom: 80px;
 }
 
-.nav-tab{flex:1;text-align:center;padding:15px}
-
-.case-item{
-min-width:80px;
-height:80px;
-background:#111;
-margin:5px;
-display:flex;
-flex-direction:column;
-align-items:center;
-justify-content:center;
-border-radius:10px;
+/* ===== GLASS ===== */
+.glass {
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    padding: 15px;
+    border-radius: 15px;
+    margin-bottom: 10px;
+    backdrop-filter: blur(10px);
 }
 
-#case-open{
-position:fixed;
-top:0;left:0;
-width:100%;height:100%;
-background:rgba(0,0,0,0.9);
-display:none;
-flex-direction:column;
-justify-content:center;
-align-items:center;
+/* ===== ТЕКСТ ===== */
+.rarity-tag {
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    color: white;
+    font-weight: 900;
+    display: inline-block;
 }
 
-#case-line{
-display:flex;
-transition:4s;
+/* ===== XP ===== */
+.xp-bar {
+    width: 100%;
+    height: 6px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 3px;
+    margin: 5px 0;
+}
+
+.xp-fill {
+    height: 100%;
+    background: var(--accent);
+    width: 0%;
+    transition: 0.3s;
+}
+
+/* ===== КНОПКИ ===== */
+.btn {
+    width: 100%;
+    padding: 12px;
+    border-radius: 12px;
+    border: none;
+    background: var(--accent);
+    color: white;
+    font-weight: bold;
+    margin-top: 10px;
+}
+
+.btn-s {
+    padding: 8px 12px;
+    border: none;
+    border-radius: 8px;
+    background: #30363d;
+    color: white;
+    font-size: 12px;
+}
+
+/* ===== МАГАЗИН ===== */
+.shop-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.s-tab {
+    flex: 1;
+    padding: 10px;
+    text-align: center;
+    background: rgba(255,255,255,0.05);
+    border-radius: 10px;
+    font-size: 12px;
+}
+
+.s-tab.active {
+    background: var(--accent);
+    color: white;
+}
+
+.market-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    border-bottom: 1px solid var(--glass-border);
+}
+
+/* ===== НАВІГАЦІЯ ===== */
+nav {
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    height: 65px;
+    display: flex;
+    background: #0a0c10;
+    border-top: 1px solid var(--glass-border);
+}
+
+.nav-tab {
+    flex: 1;
+    text-align: center;
+    padding: 20px;
+    font-size: 20px;
+    opacity: 0.5;
+}
+
+.nav-tab.active {
+    opacity: 1;
+    color: var(--accent);
+}
+
+/* ===== КОЛЕСО ===== */
+.w-wrap {
+    position: relative;
+    width: 200px;
+    height: 200px;
+    margin: 0 auto;
+}
+
+.w-main {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    border: 5px solid #333;
+    position: relative;
+    overflow: hidden;
+}
+
+.w-sec {
+    position: absolute;
+    width: 50%;
+    height: 50%;
+    transform-origin: 100% 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: bold;
+    color: white;
+}
+
+.marker {
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: var(--accent);
+    font-size: 20px;
+}
+
+/* ===== БЛЕКДЖЕК ===== */
+.card-row {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    min-height: 50px;
+    margin-bottom: 10px;
+}
+
+.card {
+    width: 35px;
+    height: 50px;
+    background: white;
+    color: black;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+}
+
+/* ===== 🎰 КЕЙС ===== */
+#case-open {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.85);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    z-index: 999;
+}
+
+#case-line {
+    display: flex;
+    transition: transform 4s cubic-bezier(0.1, 0.7, 0.2, 1);
+}
+
+.case-item {
+    min-width: 85px;
+    height: 85px;
+    margin: 5px;
+    background: #111;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    border: 2px solid #333;
+    transition: 0.2s;
+}
+
+/* glow ефект */
+.case-item:hover {
+    transform: scale(1.05);
+}
+
+/* результат */
+#case-result {
+    margin-top: 15px;
+    font-weight: bold;
+    font-size: 16px;
+    color: white;
 }
