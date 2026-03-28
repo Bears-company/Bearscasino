@@ -226,34 +226,6 @@ function renderInv() {
 window.equip = (id) => { s.p = s.inv.find(i => i.id === id); save(); renderInv(); };
 
 // --- КОЛЕСО (CANVAS) ---
-const WHEEL_SEGMENTS = [
-    { label: '0x',   color: '#da3633', textColor: '#fff', m: 0,   weight: 55 },
-    { label: '1.4x', color: '#238636', textColor: '#fff', m: 1.4, weight: 25 },
-    { label: '0x',   color: '#da3633', textColor: '#fff', m: 0,   weight: 0  },
-    { label: '1.6x', color: '#2563eb', textColor: '#fff', m: 1.6, weight: 15 },
-    { label: '0x',   color: '#da3633', textColor: '#fff', m: 0,   weight: 0  },
-    { label: '1.8x', color: '#d97706', textColor: '#fff', m: 1.8, weight: 5  },
-];
-// Build real arc segments from weights
-const WHEEL_ARCS = (() => {
-    const segs = [
-        { label:'0x',   color:'#da3633', m:0,   deg:198 },
-        { label:'1.4x', color:'#238636', m:1.4, deg:90  },
-        { label:'0x',   color:'#c0392b', m:0,   deg:0   },
-        { label:'1.6x', color:'#2563eb', m:1.6, deg:54  },
-        { label:'0x',   color:'#b03030', m:0,   deg:0   },
-        { label:'1.8x', color:'#d97706', m:1.8, deg:18  },
-    ];
-    // 55% red, 25% green, 15% blue, 5% yellow → degrees
-    const arcs = [
-        { label:'0x',   color:'#da3633', m:0,   startDeg:0,   endDeg:198  },
-        { label:'1.4x', color:'#238636', m:1.4, startDeg:198, endDeg:288  },
-        { label:'1.6x', color:'#2563eb', m:1.6, startDeg:288, endDeg:342  },
-        { label:'1.8x', color:'#d97706', m:1.8, startDeg:342, endDeg:360  },
-    ];
-    return arcs;
-})();
-
 let wheelAngle = 0;
 let wheelSpinning = false;
 
@@ -261,114 +233,95 @@ function drawWheel(angle) {
     const canvas = document.getElementById('wheel-canvas');
     if(!canvas) return;
     const ctx = canvas.getContext('2d');
-    const cx = 110, cy = 110, r = 100;
-    ctx.clearRect(0, 0, 220, 220);
+    const cx=110, cy=110, r=100;
+    ctx.clearRect(0,0,220,220);
 
-    // Outer glow ring
-    const grd = ctx.createRadialGradient(cx, cy, r-4, cx, cy, r+8);
-    grd.addColorStop(0, 'rgba(88,166,255,0.3)');
-    grd.addColorStop(1, 'rgba(88,166,255,0)');
-    ctx.beginPath(); ctx.arc(cx, cy, r+6, 0, Math.PI*2);
-    ctx.fillStyle = grd; ctx.fill();
+    const segs = [
+        {label:'0x',   color:'#c0392b', start:0,   end:198},
+        {label:'1.4x', color:'#27ae60', start:198, end:288},
+        {label:'1.6x', color:'#2980b9', start:288, end:342},
+        {label:'1.8x', color:'#e67e22', start:342, end:360},
+    ];
 
-    // Draw segments
-    WHEEL_ARCS.forEach(seg => {
-        const start = (seg.startDeg + angle) * Math.PI / 180;
-        const end   = (seg.endDeg   + angle) * Math.PI / 180;
+    segs.forEach(seg => {
+        const s = (seg.start + angle - 90) * Math.PI/180;
+        const e = (seg.end   + angle - 90) * Math.PI/180;
         ctx.beginPath();
-        ctx.moveTo(cx, cy);
-        ctx.arc(cx, cy, r, start, end);
+        ctx.moveTo(cx,cy);
+        ctx.arc(cx,cy,r,s,e);
         ctx.closePath();
         ctx.fillStyle = seg.color;
         ctx.fill();
-        ctx.strokeStyle = 'rgba(0,0,0,0.4)';
-        ctx.lineWidth = 1.5;
+        ctx.strokeStyle='rgba(0,0,0,0.5)';
+        ctx.lineWidth=2;
         ctx.stroke();
 
-        // Label
-        const midAngle = ((seg.startDeg + seg.endDeg) / 2 + angle) * Math.PI / 180;
-        const tx = cx + Math.cos(midAngle) * r * 0.65;
-        const ty = cy + Math.sin(midAngle) * r * 0.65;
+        const mid = ((seg.start+seg.end)/2 + angle - 90) * Math.PI/180;
         ctx.save();
-        ctx.translate(tx, ty);
-        ctx.rotate(midAngle + Math.PI/2);
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 13px Segoe UI, system-ui';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(seg.label, 0, 0);
+        ctx.translate(cx+Math.cos(mid)*r*0.65, cy+Math.sin(mid)*r*0.65);
+        ctx.rotate(mid + Math.PI/2);
+        ctx.fillStyle='#fff';
+        ctx.font='bold 12px Segoe UI,system-ui';
+        ctx.textAlign='center';
+        ctx.textBaseline='middle';
+        ctx.fillText(seg.label,0,0);
         ctx.restore();
     });
 
-    // Inner circle
-    ctx.beginPath(); ctx.arc(cx, cy, 22, 0, Math.PI*2);
-    const innerGrd = ctx.createRadialGradient(cx, cy, 0, cx, cy, 22);
-    innerGrd.addColorStop(0, '#1a1f2e');
-    innerGrd.addColorStop(1, '#0d1117');
-    ctx.fillStyle = innerGrd; ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.1)'; ctx.lineWidth = 2; ctx.stroke();
+    // Border
+    ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2);
+    ctx.strokeStyle='rgba(255,255,255,0.15)'; ctx.lineWidth=3; ctx.stroke();
 
-    // Tick marks
-    for(let i=0; i<24; i++){
-        const a = (i/24*360 + angle) * Math.PI/180;
-        ctx.beginPath();
-        ctx.moveTo(cx + Math.cos(a)*(r-2), cy + Math.sin(a)*(r-2));
-        ctx.lineTo(cx + Math.cos(a)*(r+4), cy + Math.sin(a)*(r+4));
-        ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 1.5; ctx.stroke();
-    }
+    // Center
+    ctx.beginPath(); ctx.arc(cx,cy,16,0,Math.PI*2);
+    ctx.fillStyle='#0d1117'; ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,0.2)'; ctx.lineWidth=2; ctx.stroke();
 }
 
-function spinWheel(targetM, targetDeg) {
-    // targetDeg is the middle of the winning segment (in original coords)
-    // We want the pointer (top = 270deg in standard coords) to land there
-    // Pointer is at top → -90deg offset
-    const pointerDeg = 270; // top of circle
-    const midDeg = (WHEEL_ARCS.find(a=>a.m===targetM).startDeg + WHEEL_ARCS.find(a=>a.m===targetM).endDeg) / 2;
-    // random offset within segment
-    const halfArc = (WHEEL_ARCS.find(a=>a.m===targetM).endDeg - WHEEL_ARCS.find(a=>a.m===targetM).startDeg) / 2;
-    const randOff = (Math.random() - 0.5) * halfArc * 0.7;
-    const landAt = midDeg + randOff;
-    // We need: landAt + finalAngle ≡ 270 (mod 360)
-    // finalAngle = (270 - landAt) + 360*spins
-    const spins = 8;
-    const finalAngle = ((270 - landAt) % 360 + 360) % 360 + spins * 360;
-
+function spinWheel(resultM, onDone) {
+    if(wheelSpinning) return;
     wheelSpinning = true;
-    const startAngle = wheelAngle % 360;
-    const totalRotation = finalAngle - startAngle + spins * 360;
-    const duration = 5000;
-    const startTime = performance.now();
 
-    function ease(t) {
-        return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2,3)/2;
-    }
+    // Map result to a target degree (middle of segment, in 0-360 coords)
+    const segMids = {0: 99, 1.4: 243, 1.6: 315, 1.8: 351};
+    const targetMid = segMids[resultM];
+    // We want targetMid to end up at 0deg (top, where pointer is)
+    // finalAngle = -(targetMid) + 360*spins
+    const spins = 6;
+    const extra = ((360 - targetMid) % 360);
+    const totalSpin = spins*360 + extra;
 
-    function frame(now) {
-        const elapsed = now - startTime;
-        const t = Math.min(elapsed / duration, 1);
-        wheelAngle = startAngle + totalRotation * ease(t);
-        drawWheel(wheelAngle);
+    const start = performance.now();
+    const duration = 4500;
+    const startAngle = wheelAngle;
+
+    function easeOut(t){ return 1 - Math.pow(1-t, 4); }
+
+    function frame(now){
+        const t = Math.min((now-start)/duration, 1);
+        wheelAngle = startAngle + totalSpin * easeOut(t);
+        drawWheel(wheelAngle % 360);
         if(t < 1) requestAnimationFrame(frame);
-        else { wheelAngle = wheelAngle % 360; wheelSpinning = false; }
+        else { wheelAngle = wheelAngle % 360; wheelSpinning = false; onDone(); }
     }
     requestAnimationFrame(frame);
 }
 
 // --- СЛОТИ ---
-const SLOT_SYMBOLS = ['🍒','🍋','🍊','🍇','⭐','💎','7️⃣'];
-const SLOT_WEIGHTS  = [30, 25, 20, 15, 6, 3, 1]; // % chance each
+const SLOT_SYMS = ['🍒','🍋','🍊','🍇','⭐','💎','7'];
+const SLOT_W    = [30, 25, 20, 15, 6, 3, 1];
 let slotsSpinning = false;
 
 function weightedSlotSymbol() {
-    let r = Math.random() * 100, cur = 0;
-    for(let i=0; i<SLOT_SYMBOLS.length; i++) { cur += SLOT_WEIGHTS[i]; if(r < cur) return SLOT_SYMBOLS[i]; }
-    return SLOT_SYMBOLS[0];
+    let r = Math.random()*100, cur=0;
+    for(let i=0;i<SLOT_SYMS.length;i++){cur+=SLOT_W[i];if(r<cur)return SLOT_SYMS[i];}
+    return SLOT_SYMS[0];
 }
 
 function slotMultiplier(reels) {
     const [a,b,c] = reels;
-    if(a===b && b===c) {
-        if(a==='7️⃣') return 5.0;
+    if(a===b && b===c){
+        if(a==='7') return 5.0;
         if(a==='💎') return 4.0;
         if(a==='⭐') return 3.0;
         return 2.0;
@@ -377,25 +330,34 @@ function slotMultiplier(reels) {
     return 0;
 }
 
+function spinReel(reelId, finalSymbol, duration, onDone) {
+    let ticks = 0;
+    const maxTicks = Math.floor(duration / 80);
+    const el = document.getElementById(reelId);
+    const iv = setInterval(() => {
+        el.innerText = SLOT_SYMS[Math.floor(Math.random()*SLOT_SYMS.length)];
+        ticks++;
+        if(ticks >= maxTicks) {
+            clearInterval(iv);
+            el.innerText = finalSymbol;
+            if(onDone) onDone();
+        }
+    }, 80);
+}
+
 function runSlots(callback) {
     if(slotsSpinning) return;
     slotsSpinning = true;
-    const results = [weightedSlotSymbol(), weightedSlotSymbol(), weightedSlotSymbol()];
-    const delays = [600, 900, 1200];
-    let symbols = ['🍒','🍋','🍊','🍇','⭐','💎','7️⃣'];
-
-    delays.forEach((delay, i) => {
-        let ticks = 0;
-        const maxTicks = 12 + i*4;
-        const interval = setInterval(() => {
-            document.getElementById('reel-'+i).innerText = symbols[Math.floor(Math.random()*symbols.length)];
-            ticks++;
-            if(ticks >= maxTicks) {
-                clearInterval(interval);
-                document.getElementById('reel-'+i).innerText = results[i];
-                if(i === 2) { slotsSpinning = false; callback(results); }
-            }
-        }, 80);
+    const r0 = weightedSlotSymbol();
+    const r1 = weightedSlotSymbol();
+    const r2 = weightedSlotSymbol();
+    spinReel('reel-0', r0, 900, () => {
+        spinReel('reel-1', r1, 900, () => {
+            spinReel('reel-2', r2, 900, () => {
+                slotsSpinning = false;
+                callback([r0, r1, r2]);
+            });
+        });
     });
 }
 
@@ -540,8 +502,7 @@ window.play = () => {
         if(wheelSpinning) return;
         let p=Math.random()*100, m;
         if(p<55) m=0; else if(p<80) m=1.4; else if(p<95) m=1.6; else m=1.8;
-        spinWheel(m, 0);
-        setTimeout(()=> res(m>0, bt, m, `Множник x${m}`), 5200);
+        spinWheel(m, () => res(m>0, bt, m, `Множник x${m}`));
     }
     else if(g==='slots'){
         if(slotsSpinning) return;
