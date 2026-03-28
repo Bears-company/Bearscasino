@@ -60,14 +60,13 @@ db.ref('players/' + myId).on('value', snap => {
     else { db.ref('players/' + myId).set(s); }
     ren();
 });
-
 function save() { db.ref('players/' + myId).set(s); }
 
 function ren() {
-    let disp = (typeof s.b === 'number') ? s.b.toFixed(2) : "0.00";
+    let disp = Number.isInteger(s.b) ? s.b : s.b.toFixed(2);
     document.getElementById('bal-val').innerText = disp;
-    document.getElementById('u-rank').innerText = "РАНГ: " + (s.r || 1);
-    document.getElementById('xp-f').style.width = Math.min(((s.x || 0)/((s.r || 1)*1000)*100), 100) + "%";
+    document.getElementById('u-rank').innerText = "РАНГ: " + s.r;
+    document.getElementById('xp-f').style.width = Math.min((s.x/(s.r*1000)*100), 100) + "%";
     
     if(s.p) {
         document.getElementById('p-img').innerText = s.p.s;
@@ -83,10 +82,8 @@ function ren() {
 window.tab = (t, el) => {
     document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
     document.querySelectorAll('.nav-tab').forEach(n => n.classList.remove('active'));
-    let target = document.getElementById('v-'+t);
-    if(target) target.style.display = 'block';
-    if(el) el.classList.add('active');
-    
+    document.getElementById('v-'+t).style.display = 'block';
+    el.classList.add('active');
     if(t === 'shop') renderShop();
     if(t === 'inv') renderInv();
     if(t === 'top') loadTop();
@@ -108,12 +105,24 @@ function renderShop() {
         for(let k in CASES) {
             const c = CASES[k];
             if(c.limited && now > DEADLINE) continue;
+            
             let badge = c.limited ? `<span class="badge-ltd">Лімітовано</span>` : "";
             let chancesHtml = c.drop.map(p => `<span style="color:${p.c}">${p.s} ${p.w}%</span>`).join(' • ');
-            h += `<div class="shop-card">
+
+            let timerHtml = "";
+            if(c.limited) {
+                let diff = DEADLINE - now;
+                let d = Math.floor(diff / (1000 * 60 * 60 * 24));
+                let hr = Math.floor((diff / (1000 * 60 * 60)) % 24);
+                timerHtml = `<div class="case-timer">⏳ Залишилось: ${d}д ${hr}г</div>`;
+            }
+
+            h += `
+            <div class="shop-card">
                 <div class="case-info">
                     <div class="case-name">${c.n} ${badge}</div>
                     <div style="font-size:10px; margin:4px 0; opacity:0.8; font-weight:bold">${chancesHtml}</div>
+                    ${timerHtml}
                 </div>
                 <button class="btn-s" style="background:var(--accent); min-width:85px" onclick="buyCase('${k}')">${c.p} BB</button>
             </div>`;
@@ -123,19 +132,15 @@ function renderShop() {
         list.innerHTML = tabs + '<div id="m-list" class="glass">Завантаження ринку...</div>';
         db.ref('market').on('value', snap => {
             let h = "";
-            let data = snap.val();
-            if(data) {
-                snap.forEach(child => {
-                    let lot = child.val();
-                    if(lot.sellerId == myId) return;
-                    h += `<div class="market-item">
-                        <div><span style="color:${lot.pet.c}">${lot.pet.s} ${lot.pet.n}</span><br><small>Від: ${lot.sellerName}</small></div>
-                        <button class="btn-s" style="background:var(--success)" onclick="buyFromMarket('${child.key}')">${lot.price} BB</button>
-                    </div>`;
-                });
-            }
-            let mList = document.getElementById('m-list');
-            if(mList) mList.innerHTML = h || "На ринку порожньо";
+            snap.forEach(child => {
+                let lot = child.val();
+                if(lot.sellerId == myId) return;
+                h += `<div class="market-item">
+                    <div><span style="color:${lot.pet.c}">${lot.pet.s} ${lot.pet.n}</span><br><small>Від: ${lot.sellerName}</small></div>
+                    <button class="btn-s" style="background:var(--success)" onclick="buyFromMarket('${child.key}')">${lot.price} BB</button>
+                </div>`;
+            });
+            document.getElementById('m-list').innerHTML = h || "На ринку порожньо";
         });
     }
 }
@@ -165,18 +170,16 @@ window.listOnMarket = (petId) => {
 // --- ІНВЕНТАР ---
 function renderInv() {
     let h = "";
-    if(s.inv) {
-        s.inv.forEach(p => {
-            let isEq = s.p && s.p.id === p.id;
-            h += `<div class="market-item">
-                <div><span style="color:${p.c}">${p.s} ${p.n}</span><br><small>Бонус: x${p.m.toFixed(2)}</small></div>
-                <div style="display:flex; gap:5px">
-                    <button class="btn-s" onclick="equip(${p.id})">${isEq?'✅':'ВЗЯТИ'}</button>
-                    <button class="btn-s" style="background:var(--purple)" onclick="listOnMarket(${p.id})">🏪</button>
-                </div>
-            </div>`;
-        });
-    }
+    s.inv.forEach(p => {
+        let isEq = s.p && s.p.id === p.id;
+        h += `<div class="market-item">
+            <div><span style="color:${p.c}">${p.s} ${p.n}</span><br><small>Бонус: x${p.m.toFixed(2)}</small></div>
+            <div style="display:flex; gap:5px">
+                <button class="btn-s" onclick="equip(${p.id})">${isEq?'✅':'ВЗЯТИ'}</button>
+                <button class="btn-s" style="background:var(--purple)" onclick="listOnMarket(${p.id})">🏪</button>
+            </div>
+        </div>`;
+    });
     document.getElementById('inv-list').innerHTML = h || "Інвентар порожній";
 }
 window.equip = (id) => { s.p = s.inv.find(i => i.id === id); save(); renderInv(); };
@@ -257,7 +260,7 @@ window.buyCase = (k) => {
 };
 window.closeCase=()=>{ document.getElementById('case-modal').style.display='none'; document.getElementById('case-close').style.display='none'; document.getElementById('case-res').innerText=''; };
 
-// --- АДМІНКА ---
+// --- АДМІНКА (ТАБИ + ФУНКЦІЇ) ---
 window.setAdminTab = (t) => { currentAdminTab = t; loadAdmin(); };
 
 function loadAdmin() {
@@ -265,31 +268,20 @@ function loadAdmin() {
         let tabs = `<div class="admin-tabs">
             <div class="a-tab ${currentAdminTab==='balance'?'active':''}" onclick="setAdminTab('balance')">💰 Баланс</div>
             <div class="a-tab ${currentAdminTab==='pets'?'active':''}" onclick="setAdminTab('pets')">🐾 Пети</div>
-            <div class="a-tab ${currentAdminTab==='manage_inv'?'active':''}" onclick="setAdminTab('manage_inv')">🎒 Інв</div>
         </div>`;
         let h = tabs;
         snap.forEach(c => {
             let p = c.val(); let uid = c.key;
-            h += `<div class="admin-card"><b>${p.name || 'Анонім'}</b><br>Баланс: ${p.b.toFixed(2)} BB`;
+            h += `<div class="admin-card">
+                <b>${p.name || 'Анонім'}</b><br>Баланс: ${p.b.toFixed(2)} BB`;
             if(currentAdminTab === 'balance') {
                 h += `<div class="admin-ctrl-grid">
-                    <button class="btn-ctrl b-add" onclick="mathB('${uid}', 'add')">+Додати</button>
-                    <button class="btn-ctrl b-sub" onclick="mathB('${uid}', 'sub')">-Мінус</button>
+                    <button class="btn-ctrl b-add" onclick="mathB('${uid}', 'add')">+ Додати</button>
+                    <button class="btn-ctrl b-sub" onclick="mathB('${uid}', 'sub')">- Мінус</button>
                     <button class="btn-ctrl b-set" onclick="mathB('${uid}', 'set')">Задати</button>
                 </div>`;
-            } else if(currentAdminTab === 'pets') {
+            } else {
                 h += `<button class="btn" style="padding:8px; font-size:12px; margin-top:10px; background:var(--purple)" onclick="adminGivePet('${uid}')">🎁 Подарувати пета</button>`;
-            } else if(currentAdminTab === 'manage_inv') {
-                if(p.inv && p.inv.length > 0) {
-                    h += `<div style="margin-top:10px; border-top:1px solid #444">`;
-                    p.inv.forEach((pet, idx) => {
-                        h += `<div style="display:flex; justify-content:space-between; padding:4px 0; font-size:11px">
-                            <span>${pet.s} ${pet.n}</span>
-                            <button onclick="adminTakePet('${uid}', ${idx})" style="background:var(--error); border:none; color:white; border-radius:4px; padding:2px 6px">❌</button>
-                        </div>`;
-                    });
-                    h += `</div>`;
-                } else { h += `<div style="font-size:11px; opacity:0.5; margin-top:5px">Порожньо</div>`; }
             }
             h += `</div>`;
         });
@@ -316,15 +308,6 @@ window.adminGivePet = (tid) => {
         db.ref('players/'+tid+'/inv').once('value', sn=>{ let inv=sn.val()||[]; inv.push(p); db.ref('players/'+tid+'/inv').set(inv); });
         alert("Видано!");
     }
-};
-
-window.adminTakePet = (targetId, petIdx) => {
-    if(!confirm("Вилучити пета?")) return;
-    db.ref('players/' + targetId + '/inv').once('value', snap => {
-        let inv = snap.val() || [];
-        inv.splice(petIdx, 1);
-        db.ref('players/' + targetId + '/inv').set(inv).then(() => loadAdmin());
-    });
 };
 
 // --- ТОП ТА ІГРИ ---
