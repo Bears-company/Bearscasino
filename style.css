@@ -1,39 +1,30 @@
 :root {
-    --bg: #030508;
-    --accent: #58a6ff;
-    --glass: rgba(13, 17, 23, 0.7);
-    --glass-border: rgba(255, 255, 255, 0.06);
-    --text: #c9d1d9;
-    --success: #238636;
-    --error: #da3633;
-    --warning: #f59e0b;
-    --purple: #bf40bf;
+    --bg: #030508; --accent: #58a6ff; --glass: rgba(13, 17, 23, 0.7);
+    --glass-border: rgba(255, 255, 255, 0.06); --text: #c9d1d9;
+    --success: #238636; --error: #da3633; --warning: #f59e0b;
 }
-
-body { margin: 0; background: var(--bg); color: var(--text); font-family: sans-serif; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
 .container { flex: 1; overflow-y: auto; padding: 15px; padding-bottom: 80px; }
-.glass { background: var(--glass); border: 1px solid var(--glass-border); padding: 15px; border-radius: 15px; margin-bottom: 15px; backdrop-filter: blur(10px); }
+.glass { background: var(--glass); border: 1px solid var(--glass-border); padding: 15px; border-radius: 15px; margin-bottom: 10px; }
+.rarity-tag { font-size: 9px; padding: 2px 8px; border-radius: 5px; color: white; display: inline-block; font-weight: 900; }
+.xp-bar { width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; margin: 5px 0; }
+.xp-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.3s; }
+.btn { width: 100%; padding: 12px; border-radius: 10px; border: none; background: var(--accent); color: white; font-weight: bold; margin-top: 10px; }
+.btn-s { padding: 8px 12px; border: none; border-radius: 6px; background: #30363d; color: white; font-size: 11px; }
 
-.xp-bar { width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; margin: 8px 0; overflow: hidden; }
-.xp-fill { height: 100%; background: var(--accent); transition: width 0.3s; }
+/* КОЛЕСО */
+.w-wrap { position: relative; width: 200px; height: 200px; margin: 0 auto; }
+.w-main { width: 100%; height: 100%; border-radius: 50%; border: 5px solid #333; position: relative; overflow: hidden; }
+.w-sec { position: absolute; width: 50%; height: 50%; transform-origin: 100% 100%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; color: white; }
+.marker { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); color: var(--accent); z-index: 10; font-size: 20px; }
 
-.btn { width: 100%; padding: 12px; border-radius: 10px; border: none; background: var(--accent); color: white; font-weight: bold; }
-.btn-s { padding: 6px 12px; border-radius: 6px; border: none; background: #30363d; color: white; font-size: 11px; }
+/* БЛЕКДЖЕК */
+.card-row { display: flex; justify-content: center; gap: 8px; min-height: 50px; margin-bottom: 10px; }
+.card { width: 35px; height: 50px; background: white; color: black; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-weight: bold; }
 
-/* ДИЗАЙН КУБИКА */
-.dice-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 15px; }
-.d-btn { padding: 10px; border: none; border-radius: 8px; background: #30363d; color: white; font-weight: bold; }
-
-/* АДМІНКА */
-.admin-tabs { display: flex; gap: 8px; margin-bottom: 15px; }
-.a-tab { flex: 1; padding: 10px; text-align: center; background: rgba(255,255,255,0.05); border-radius: 10px; font-size: 12px; }
-.a-tab.active { background: var(--accent); }
-.admin-card { background: rgba(255,255,255,0.03); padding: 12px; border-radius: 12px; margin-bottom: 8px; border: 1px solid var(--glass-border); }
-.admin-ctrl-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; margin-top: 8px; }
-.b-add { background: var(--success); }
-.b-sub { background: var(--error); }
-.b-set { background: #30363d; }
-
+.shop-tabs { display: flex; gap: 10px; margin-bottom: 10px; }
+.s-tab { flex: 1; padding: 10px; text-align: center; background: rgba(255,255,255,0.05); border-radius: 10px; font-size: 12px; }
+.s-tab.active { background: var(--accent); color: white; }
 .market-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid var(--glass-border); }
 nav { position: fixed; bottom: 0; width: 100%; height: 65px; display: flex; background: #0a0c10; border-top: 1px solid var(--glass-border); }
 .nav-tab { flex: 1; text-align: center; padding: 20px; font-size: 20px; opacity: 0.5; }
