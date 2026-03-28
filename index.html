@@ -13,17 +13,17 @@
 
 <header>
     <div>
-        <div style="font-weight:900; font-size:18px; color:white; letter-spacing:1px">BEARS CASINO</div>
-        <div style="font-size:10px; color:var(--accent); font-weight:bold;">PET EVOLUTION</div>
+        <div style="font-weight:900; font-size:18px; color:white;">BEARS CASINO</div>
+        <div style="font-size:10px; color:var(--accent); font-weight:bold;">ADMIN ENABLED</div>
     </div>
     <div class="bal-card"><span id="bal-val">0</span> BB</div>
 </header>
 
 <div class="container">
-    <div class="glass" style="display:flex; align-items:center; gap:15px; border-left: 5px solid var(--accent);">
+    <div id="pet-card" class="glass" style="display:flex; align-items:center; gap:15px; border-left: 5px solid var(--accent);">
         <div id="p-img" style="font-size:45px;">🥚</div>
         <div style="flex:1">
-            <div id="p-rarity" class="rarity-tag">НЕМАЄ</div>
+            <div id="p-rarity" class="rarity-tag">Common</div>
             <div id="p-name" style="font-weight:bold; font-size:16px">Оберіть пета</div>
             <div class="xp-bar"><div id="xp-f" class="xp-fill"></div></div>
             <div style="display:flex; justify-content:space-between; font-size:10px;">
@@ -36,14 +36,17 @@
 
     <div id="v-main" class="page">
         <div class="glass">
-            <select id="g-sel" class="game-select" onchange="updUI()">
-                <option value="f50">⚖️ 50/50 (x1.55)</option>
-                <option value="dice">🎲 Кубик (x2.05)</option>
-                <option value="wheel">🎡 Колесо (До x2.0)</option>
-                <option value="bj">🃏 Блекджек (x2.0)</option>
-            </select>
+            <div class="custom-select-wrapper">
+                <select id="g-sel" class="game-select" onchange="updUI()">
+                    <option value="f50">⚖️ 50/50 (x1.55)</option>
+                    <option value="dice">🎲 Кубик (x2.05)</option>
+                    <option value="wheel">🎡 Колесо (x0 - x2.0)</option>
+                    <option value="bj">🃏 Блекджек (x2.0)</option>
+                </select>
+            </div>
 
             <div id="ui-dice" style="display:none; margin:15px 0;">
+                <p style="text-align:center; font-size:12px; opacity:0.6;">Виберіть число:</p>
                 <div class="dice-grid">
                     <button class="d-btn" onclick="selN(1, this)">1</button>
                     <button class="d-btn" onclick="selN(2, this)">2</button>
@@ -71,23 +74,26 @@
                 <div id="bj-dc" class="card-row"></div>
                 <div id="bj-pc" class="card-row"></div>
                 <div id="bj-ctrl" style="display:none; gap:10px; justify-content:center; margin-top:15px;">
-                    <button class="btn-s" onclick="bjDo('hit')">ЩЕ</button>
-                    <button class="btn-s" onclick="bjDo('stop')" style="background:var(--error)">СТОП</button>
+                    <button class="btn-s hit-btn" onclick="bjDo('hit')">ЩЕ</button>
+                    <button class="btn-s stop-btn" onclick="bjDo('stop')">СТОП</button>
                 </div>
             </div>
 
-            <input type="number" id="bet-a" value="10" class="bet-input">
-            <button class="btn" onclick="play()">ГРАТИ</button>
-            <div id="g-stat" style="text-align:center; margin-top:10px; font-weight:bold;"></div>
+            <div class="bet-box">
+                <span class="bet-label">СТАВКА:</span>
+                <input type="number" id="bet-a" value="10" class="bet-input">
+            </div>
+            <button class="btn main-play-btn" onclick="play()">ПОЧАТИ ГРУ</button>
+            <div id="g-stat"></div>
         </div>
     </div>
 
     <div id="v-shop" class="page" style="display:none">
         <div class="shop-tabs">
-            <button class="s-tab active" onclick="setShop('cases', this)">📦 Кейси</button>
-            <button class="s-tab" onclick="setShop('market', this)">🛒 Ринок</button>
+            <div id="tab-cases" class="s-tab active" onclick="setShopMode('cases')">📦 КЕЙСИ</div>
+            <div id="tab-market" class="s-tab" onclick="setShopMode('market')">🛒 РИНОК</div>
         </div>
-        <div id="shop-list" class="glass"></div>
+        <div id="shop-content" class="glass"></div>
     </div>
 
     <div id="v-inv" class="page" style="display:none">
@@ -99,14 +105,14 @@
 
     <div id="v-top" class="page" style="display:none">
         <div class="glass">
-            <h3 style="margin:0 0 10px 0; color:var(--warning)">🏆 ТОП ГРАВЦІВ</h3>
+            <h3 style="margin:0 0 15px 0; color:var(--warning); text-align:center">🏆 ТОП ГРАВЦІВ</h3>
             <div id="leaderboard"></div>
         </div>
     </div>
 
     <div id="v-admin" class="page" style="display:none">
         <div class="glass">
-            <h3 style="margin:0 0 10px 0; color:var(--accent)">⚡ АДМІН-ПАНЕЛЬ</h3>
+            <h3 style="margin:0 0 15px 0; color:var(--accent)">⚡ ADMIN PANEL</h3>
             <div id="admin-list"></div>
         </div>
     </div>
