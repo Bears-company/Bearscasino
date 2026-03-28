@@ -17,16 +17,6 @@ const ADMINS = [8216362223, 2067230442];
 const myId = tg.initDataUnsafe?.user?.id || 101; 
 const myName = tg.initDataUnsafe?.user?.first_name || "Гравець";
 
-// СИСТЕМА ЗВУКІВ
-const Snd = {
-    win: new Audio('https://www.myinstants.com/media/sounds/tada.mp3'),
-    lose: new Audio('https://www.myinstants.com/media/sounds/080509_lose_6.mp3'),
-    click: new Audio('https://www.myinstants.com/media/sounds/button-3.mp3'),
-    wheel: new Audio('https://www.myinstants.com/media/sounds/spinning-wheel.mp3'),
-    case: new Audio('https://www.myinstants.com/media/sounds/case_open.mp3')
-};
-Object.values(Snd).forEach(s => s.volume = 0.4);
-
 const CASES = {
     basic: { n: "Базовий", p: 300, drop: [
         {n:'Собака', s:'🐶', r:'Звичайний', m:1.05, w:40, c:'#94a3b8'},
@@ -38,21 +28,32 @@ const CASES = {
         {n:'Лисиця', s:'🦊', r:'Незвичайний', m:1.07, w:43, c:'#3b82f6'},
         {n:'Вовк', s:'🐺', r:'Рідкісний', m:1.09, w:14, c:'#a855f7'}
     ]},
+    rare: { n: "Рідкісний", p: 850, drop: [
+        {n:'Вовк', s:'🐺', r:'Рідкісний', m:1.09, w:45, c:'#a855f7'},
+        {n:'Бджола', s:'🐝', r:'Рідкісний', m:1.09, w:45, c:'#a855f7'},
+        {n:'Панда', s:'🐼', r:'Епічний', m:1.12, w:10, c:'#f59e0b'}
+    ]},
     legend: { n: "Легендарний", p: 1250, drop: [
         {n:'Панда', s:'🐼', r:'Епічний', m:1.12, w:56, c:'#f59e0b'},
         {n:'Лев', s:'🦁', r:'Легендарний', m:1.14, w:20, c:'#f43f5e'},
         {n:'Дракон', s:'🐲', r:'Легендарний', m:1.16, w:24, c:'#f43f5e'}
+    ]},
+    ocean: { n: "Океан", p: 1500, drop: [
+        {n:'Рибка', s:'🐟', r:'Незвичайний', m:1.1, w:40, c:'#3b82f6'},
+        {n:'Тропічна рибка', s:'🐠', r:'Рідкісний', m:1.12, w:30, c:'#a855f7'},
+        {n:'Акула', s:'🦈', r:'Епічний', m:1.15, w:20, c:'#f59e0b'},
+        {n:'Восьминіг', s:'🐙', r:'Легендарний', m:1.19, w:10, c:'#f43f5e'}
     ]}
 };
 
-let s = { b: 10, x: 0, r: 1, name: myName, p: null, inv: [], v: 2.6 };
+let s = { b: 10, x: 0, r: 1, name: myName, p: null, inv: [], v: 2.7 };
 let selN_val = 1;
 
 db.ref('players/' + myId).on('value', snap => {
     let d = snap.val();
     if(d) {
         s = d; if(!s.inv) s.inv = [];
-        if(s.v !== 2.6) { s.v = 2.6; save(); }
+        if(s.v !== 2.7) { s.v = 2.7; save(); }
     } else { db.ref('players/' + myId).set(s); }
     ren();
 });
@@ -60,7 +61,8 @@ db.ref('players/' + myId).on('value', snap => {
 function save() { db.ref('players/' + myId).set(s); }
 
 function ren() {
-    document.getElementById('bal-val').innerText = Math.floor(s.b).toLocaleString();
+    let displayBal = Number.isInteger(s.b) ? s.b : s.b.toFixed(2);
+    document.getElementById('bal-val').innerText = displayBal;
     document.getElementById('u-rank').innerText = "РАНГ: " + s.r;
     document.getElementById('xp-f').style.width = Math.min((s.x/(s.r*1000)*100), 100) + "%";
     if(s.p) {
@@ -74,7 +76,6 @@ function ren() {
 }
 
 window.tab = (t, el) => {
-    Snd.click.play();
     document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
     document.querySelectorAll('.nav-tab').forEach(n => n.classList.remove('active'));
     document.getElementById('v-'+t).style.display = 'block';
@@ -95,7 +96,6 @@ function renderShop() {
 
 window.buyCase = (k) => {
     let c = CASES[k]; if(s.b < c.p) return alert("Мало BB!");
-    Snd.case.play();
     s.b -= c.p; save();
     document.getElementById('case-modal').style.display = 'flex';
     document.getElementById('case-close').style.display = 'none';
@@ -130,7 +130,7 @@ function renderInv() {
     let h = "";
     s.inv.forEach(p => {
         let isEq = s.p && s.p.id === p.id;
-        h += `<div class="shop-item"><span>${p.s} ${p.n}</span><button class="btn-s" onclick="equip(${p.id})">${isEq?'ВЗЯТО':'ВЗЯТИ'}</button></div>`;
+        h += `<div class="shop-item"><span>${p.s} ${p.n} (x${p.m})</span><button class="btn-s" onclick="equip(${p.id})">${isEq?'ВЗЯТО':'ВЗЯТИ'}</button></div>`;
     });
     list.innerHTML = h;
 }
@@ -140,7 +140,7 @@ function loadTop() {
     db.ref('players').once('value', snap => {
         let l = []; snap.forEach(c => { if(c.val().name) l.push(c.val()); });
         l.sort((a,b) => b.b - a.b);
-        let h = ""; l.slice(0,10).forEach((p, i) => h += `<div style="display:flex; justify-content:space-between; margin-bottom:10px"><span>${i+1}. ${p.name}</span><b>${Math.floor(p.b)}</b></div>`);
+        let h = ""; l.slice(0,10).forEach((p, i) => h += `<div style="display:flex; justify-content:space-between; margin-bottom:10px"><span>${i+1}. ${p.name}</span><b>${Math.floor(p.b)} BB</b></div>`);
         document.getElementById('leaderboard').innerHTML = h;
     });
 }
@@ -148,7 +148,7 @@ function loadTop() {
 function loadAdmin() {
     db.ref('players').limitToLast(30).on('value', snap => {
         let h = ""; snap.forEach(c => {
-            h += `<div class="shop-item"><span>${c.val().name || 'UID:'+c.key}</span><button class="btn-s" onclick="setB('${c.key}')">SET</button></div>`;
+            h += `<div class="shop-item"><span>${c.val().name || c.key}</span><button class="btn-s" onclick="setB('${c.key}')">SET</button></div>`;
         });
         document.getElementById('admin-list').innerHTML = h;
     });
@@ -168,8 +168,8 @@ window.updUI = () => {
 window.selN = (n, el) => { selN_val = n; document.querySelectorAll('.n-btn').forEach(b => b.classList.remove('active')); el.classList.add('active'); };
 
 window.play = () => {
-    let bt = parseInt(document.getElementById('bet-a').value);
-    if(bt > s.b || bt <= 0) return alert("Мало BB!");
+    let bt = parseFloat(document.getElementById('bet-a').value);
+    if(bt > s.b || bt <= 0 || isNaN(bt)) return alert("Мало BB!");
     let g = document.getElementById('g-sel').value;
     document.getElementById('g-stat').innerHTML = "⏳ Очікуємо...";
     
@@ -178,18 +178,18 @@ window.play = () => {
     else if(g==='wheel') {
         let wheel = document.getElementById('w-obj'); 
         wheel.style.transition = "none"; wheel.style.transform = "rotate(0deg)";
+        let p = Math.random() * 100;
+        let m, txt, sectorDeg;
+        if(p < 45) { m = 0; txt = "Червоний (0x)"; sectorDeg = Math.random() * 162; }
+        else if(p < 80) { m = 1.25; txt = "Зелений (1.25x)"; sectorDeg = 162 + Math.random() * 126; }
+        else if(p < 95) { m = 1.5; txt = "Синій (1.5x)"; sectorDeg = 288 + Math.random() * 54; }
+        else { m = 1.75; txt = "Золотий (1.75x)"; sectorDeg = 342 + Math.random() * 18; }
+
         setTimeout(() => {
-            Snd.wheel.play();
             wheel.style.transition = "transform 4s cubic-bezier(0.1, 0, 0.1, 1)";
-            let deg = 1800 + Math.floor(Math.random() * 360); wheel.style.transform = `rotate(${deg}deg)`;
-            setTimeout(() => {
-                let p = Math.random() * 100; let m, txt;
-                if(p < 45) { m = 0; txt = "Червоний (0x)"; }
-                else if(p < 80) { m = 1.25; txt = "Зелений (1.25x)"; }
-                else if(p < 95) { m = 1.5; txt = "Синій (1.5x)"; }
-                else { m = 1.75; txt = "Золотий (1.75x)"; }
-                res(m > 0, bt, m, txt);
-            }, 4100);
+            let finalDeg = 1800 + (360 - sectorDeg);
+            wheel.style.transform = `rotate(${finalDeg}deg)`;
+            setTimeout(() => { res(m > 0, bt, m, txt); }, 4100);
         }, 50);
     }
     else if(g==='bj') startBJ(bt);
@@ -198,12 +198,13 @@ window.play = () => {
 function res(win, bt, m, msg) {
     let st = document.getElementById('g-stat');
     if(win) {
-        Snd.win.play();
-        let bon = s.p ? s.p.m : 1; let w = Math.floor((bt*m-bt)*bon);
-        s.b += w; s.x += Math.floor(bt/4); st.innerHTML = `<span style="color:var(--success)">+${w} BB</span><br><small>${msg}</small>`;
+        let bon = s.p ? s.p.m : 1; 
+        let winAmount = (bt * m - bt) * bon;
+        s.b += winAmount; s.x += Math.floor(bt/4); 
+        st.innerHTML = `<span style="color:var(--success)">+${winAmount.toFixed(2)} BB</span><br><small>${msg}</small>`;
     } else {
-        Snd.lose.play();
-        s.b -= bt; st.innerHTML = `<span style="color:var(--error)">-${bt} BB</span><br><small>${msg}</small>`;
+        s.b -= bt; 
+        st.innerHTML = `<span style="color:var(--error)">-${bt.toFixed(2)} BB</span><br><small>${msg}</small>`;
     }
     save();
 }
@@ -218,7 +219,7 @@ function reBJ(){
 }
 window.bjDo=(a)=>{
     const sum=(x)=>x.reduce((v,z)=>v+z,0);
-    if(a==='hit'){ Snd.click.play(); bj.p.push(dr()); reBJ(); }
+    if(a==='hit'){ bj.p.push(dr()); reBJ(); }
     else { while(sum(bj.d)<17) bj.d.push(dr()); reBJ(); let win=sum(bj.d)>21||sum(bj.p)>sum(bj.d); res(win,bj.bt,2, win?"Виграш!":"Програш"); endBJ(); }
 };
 function endBJ(){ document.getElementById('bj-ctrl').style.display='none'; }
