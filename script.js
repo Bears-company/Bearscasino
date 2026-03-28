@@ -51,6 +51,8 @@ const CASES = {
 let s = { b: 0, x: 0, r: 1, name: myName, p: null, inv: [], v: 3.1 };
 let currentShopTab = 'cases';
 let currentAdminTab = 'balance';
+let adminInvUserId = null;
+let adminInvUserName = '';
 let selN_val = 1;
 
 // --- БАЗОВА ЛОГІКА ---
@@ -264,10 +266,15 @@ window.closeCase=()=>{ document.getElementById('case-modal').style.display='none
 window.setAdminTab = (t) => { currentAdminTab = t; loadAdmin(); };
 
 function loadAdmin() {
+    if(currentAdminTab === 'inv' && adminInvUserId) {
+        loadAdminUserInv(adminInvUserId, adminInvUserName);
+        return;
+    }
     db.ref('players').once('value', snap => {
         let tabs = `<div class="admin-tabs">
             <div class="a-tab ${currentAdminTab==='balance'?'active':''}" onclick="setAdminTab('balance')">💰 Баланс</div>
             <div class="a-tab ${currentAdminTab==='pets'?'active':''}" onclick="setAdminTab('pets')">🐾 Пети</div>
+            <div class="a-tab ${currentAdminTab==='inv'?'active':''}" onclick="setAdminTab('inv')">🎒 Інвентар</div>
         </div>`;
         let h = tabs;
         snap.forEach(c => {
@@ -280,14 +287,81 @@ function loadAdmin() {
                     <button class="btn-ctrl b-sub" onclick="mathB('${uid}', 'sub')">- Мінус</button>
                     <button class="btn-ctrl b-set" onclick="mathB('${uid}', 'set')">Задати</button>
                 </div>`;
-            } else {
+            } else if(currentAdminTab === 'pets') {
                 h += `<button class="btn" style="padding:8px; font-size:12px; margin-top:10px; background:var(--purple)" onclick="adminGivePet('${uid}')">🎁 Подарувати пета</button>`;
+            } else if(currentAdminTab === 'inv') {
+                let invCount = (p.inv || []).length;
+                h += `<br><small style="color:#8d99ae">Петів в інвентарі: ${invCount}</small>
+                <button class="btn" style="padding:8px; font-size:12px; margin-top:10px; background:#1c4a8a" onclick="openAdminInv('${uid}', '${(p.name||'Анонім').replace(/'/g,"\\'")}')">🎒 Переглянути інвентар</button>`;
             }
             h += `</div>`;
         });
         document.getElementById('admin-list').innerHTML = h;
     });
 }
+
+window.openAdminInv = (uid, name) => {
+    adminInvUserId = uid;
+    adminInvUserName = name;
+    loadAdminUserInv(uid, name);
+};
+
+function loadAdminUserInv(uid, name) {
+    db.ref('players/' + uid).once('value', snap => {
+        let p = snap.val();
+        let inv = (p && p.inv) ? p.inv : [];
+        let tabs = `<div class="admin-tabs">
+            <div class="a-tab" onclick="setAdminTab('balance')">💰 Баланс</div>
+            <div class="a-tab" onclick="setAdminTab('pets')">🐾 Пети</div>
+            <div class="a-tab active" onclick="setAdminTab('inv')">🎒 Інвентар</div>
+        </div>`;
+        let h = tabs;
+        h += `<div style="display:flex; align-items:center; gap:10px; margin-bottom:12px">
+            <button class="btn-s" onclick="adminInvUserId=null; adminInvUserName=''; loadAdmin()" style="background:#30363d; font-size:16px; padding:8px 14px">← Назад</button>
+            <div>
+                <div style="font-weight:bold; font-size:15px">${name}</div>
+                <div style="font-size:11px; color:#8d99ae">Петів: ${inv.length}</div>
+            </div>
+        </div>`;
+        if(inv.length === 0) {
+            h += `<div class="admin-card" style="text-align:center; color:#8d99ae">Інвентар порожній</div>`;
+        } else {
+            inv.forEach((pet, idx) => {
+                let isEquipped = p.p && p.p.id === pet.id;
+                h += `<div class="admin-card" style="display:flex; justify-content:space-between; align-items:center; padding:12px 15px">
+                    <div style="display:flex; align-items:center; gap:10px">
+                        <span style="font-size:28px">${pet.s}</span>
+                        <div>
+                            <div style="font-weight:bold">${pet.n} ${isEquipped ? '<span style="font-size:10px; background:var(--success); padding:1px 5px; border-radius:4px">Активний</span>' : ''}</div>
+                            <div style="font-size:11px; color:${pet.c}">${pet.r}</div>
+                            <div style="font-size:11px; color:#8d99ae">Бонус: x${pet.m.toFixed(2)} • LVL ${pet.lvl || 1}</div>
+                        </div>
+                    </div>
+                    <button class="btn-ctrl b-sub" style="padding:8px 12px; font-size:12px; min-width:70px" onclick="adminRemovePet('${uid}', ${idx}, '${name}')">🗑 Видалити</button>
+                </div>`;
+            });
+        }
+        document.getElementById('admin-list').innerHTML = h;
+    });
+}
+
+window.adminRemovePet = (uid, petIdx, name) => {
+    db.ref('players/' + uid).once('value', snap => {
+        let p = snap.val();
+        let inv = p.inv ? [...p.inv] : [];
+        let pet = inv[petIdx];
+        if(!pet) return alert("Пет не знайдений!");
+        if(!confirm(`Видалити ${pet.s} ${pet.n} з інвентаря гравця ${name}?`)) return;
+        // Якщо це активний пет — прибираємо
+        if(p.p && p.p.id === pet.id) {
+            db.ref('players/' + uid + '/p').set(null);
+        }
+        inv.splice(petIdx, 1);
+        db.ref('players/' + uid + '/inv').set(inv).then(() => {
+            loadAdminUserInv(uid, name);
+        });
+    });
+};
 
 window.mathB = (id, type) => {
     let v = prompt("Сума:"); if(!v || isNaN(v)) return;
