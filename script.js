@@ -225,39 +225,335 @@ function renderInv() {
 }
 window.equip = (id) => { s.p = s.inv.find(i => i.id === id); save(); renderInv(); };
 
+// --- КОЛЕСО (CANVAS) ---
+const WHEEL_SEGMENTS = [
+    { label: '0x',   color: '#da3633', textColor: '#fff', m: 0,   weight: 55 },
+    { label: '1.4x', color: '#238636', textColor: '#fff', m: 1.4, weight: 25 },
+    { label: '0x',   color: '#da3633', textColor: '#fff', m: 0,   weight: 0  },
+    { label: '1.6x', color: '#2563eb', textColor: '#fff', m: 1.6, weight: 15 },
+    { label: '0x',   color: '#da3633', textColor: '#fff', m: 0,   weight: 0  },
+    { label: '1.8x', color: '#d97706', textColor: '#fff', m: 1.8, weight: 5  },
+];
+// Build real arc segments from weights
+const WHEEL_ARCS = (() => {
+    const segs = [
+        { label:'0x',   color:'#da3633', m:0,   deg:198 },
+        { label:'1.4x', color:'#238636', m:1.4, deg:90  },
+        { label:'0x',   color:'#c0392b', m:0,   deg:0   },
+        { label:'1.6x', color:'#2563eb', m:1.6, deg:54  },
+        { label:'0x',   color:'#b03030', m:0,   deg:0   },
+        { label:'1.8x', color:'#d97706', m:1.8, deg:18  },
+    ];
+    // 55% red, 25% green, 15% blue, 5% yellow → degrees
+    const arcs = [
+        { label:'0x',   color:'#da3633', m:0,   startDeg:0,   endDeg:198  },
+        { label:'1.4x', color:'#238636', m:1.4, startDeg:198, endDeg:288  },
+        { label:'1.6x', color:'#2563eb', m:1.6, startDeg:288, endDeg:342  },
+        { label:'1.8x', color:'#d97706', m:1.8, startDeg:342, endDeg:360  },
+    ];
+    return arcs;
+})();
+
+let wheelAngle = 0;
+let wheelSpinning = false;
+
+function drawWheel(angle) {
+    const canvas = document.getElementById('wheel-canvas');
+    if(!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const cx = 110, cy = 110, r = 100;
+    ctx.clearRect(0, 0, 220, 220);
+
+    // Outer glow ring
+    const grd = ctx.createRadialGradient(cx, cy, r-4, cx, cy, r+8);
+    grd.addColorStop(0, 'rgba(88,166,255,0.3)');
+    grd.addColorStop(1, 'rgba(88,166,255,0)');
+    ctx.beginPath(); ctx.arc(cx, cy, r+6, 0, Math.PI*2);
+    ctx.fillStyle = grd; ctx.fill();
+
+    // Draw segments
+    WHEEL_ARCS.forEach(seg => {
+        const start = (seg.startDeg + angle) * Math.PI / 180;
+        const end   = (seg.endDeg   + angle) * Math.PI / 180;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, r, start, end);
+        ctx.closePath();
+        ctx.fillStyle = seg.color;
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // Label
+        const midAngle = ((seg.startDeg + seg.endDeg) / 2 + angle) * Math.PI / 180;
+        const tx = cx + Math.cos(midAngle) * r * 0.65;
+        const ty = cy + Math.sin(midAngle) * r * 0.65;
+        ctx.save();
+        ctx.translate(tx, ty);
+        ctx.rotate(midAngle + Math.PI/2);
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 13px Segoe UI, system-ui';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(seg.label, 0, 0);
+        ctx.restore();
+    });
+
+    // Inner circle
+    ctx.beginPath(); ctx.arc(cx, cy, 22, 0, Math.PI*2);
+    const innerGrd = ctx.createRadialGradient(cx, cy, 0, cx, cy, 22);
+    innerGrd.addColorStop(0, '#1a1f2e');
+    innerGrd.addColorStop(1, '#0d1117');
+    ctx.fillStyle = innerGrd; ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.1)'; ctx.lineWidth = 2; ctx.stroke();
+
+    // Tick marks
+    for(let i=0; i<24; i++){
+        const a = (i/24*360 + angle) * Math.PI/180;
+        ctx.beginPath();
+        ctx.moveTo(cx + Math.cos(a)*(r-2), cy + Math.sin(a)*(r-2));
+        ctx.lineTo(cx + Math.cos(a)*(r+4), cy + Math.sin(a)*(r+4));
+        ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 1.5; ctx.stroke();
+    }
+}
+
+function spinWheel(targetM, targetDeg) {
+    // targetDeg is the middle of the winning segment (in original coords)
+    // We want the pointer (top = 270deg in standard coords) to land there
+    // Pointer is at top → -90deg offset
+    const pointerDeg = 270; // top of circle
+    const midDeg = (WHEEL_ARCS.find(a=>a.m===targetM).startDeg + WHEEL_ARCS.find(a=>a.m===targetM).endDeg) / 2;
+    // random offset within segment
+    const halfArc = (WHEEL_ARCS.find(a=>a.m===targetM).endDeg - WHEEL_ARCS.find(a=>a.m===targetM).startDeg) / 2;
+    const randOff = (Math.random() - 0.5) * halfArc * 0.7;
+    const landAt = midDeg + randOff;
+    // We need: landAt + finalAngle ≡ 270 (mod 360)
+    // finalAngle = (270 - landAt) + 360*spins
+    const spins = 8;
+    const finalAngle = ((270 - landAt) % 360 + 360) % 360 + spins * 360;
+
+    wheelSpinning = true;
+    const startAngle = wheelAngle % 360;
+    const totalRotation = finalAngle - startAngle + spins * 360;
+    const duration = 5000;
+    const startTime = performance.now();
+
+    function ease(t) {
+        return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2,3)/2;
+    }
+
+    function frame(now) {
+        const elapsed = now - startTime;
+        const t = Math.min(elapsed / duration, 1);
+        wheelAngle = startAngle + totalRotation * ease(t);
+        drawWheel(wheelAngle);
+        if(t < 1) requestAnimationFrame(frame);
+        else { wheelAngle = wheelAngle % 360; wheelSpinning = false; }
+    }
+    requestAnimationFrame(frame);
+}
+
+// --- СЛОТИ ---
+const SLOT_SYMBOLS = ['🍒','🍋','🍊','🍇','⭐','💎','7️⃣'];
+const SLOT_WEIGHTS  = [30, 25, 20, 15, 6, 3, 1]; // % chance each
+let slotsSpinning = false;
+
+function weightedSlotSymbol() {
+    let r = Math.random() * 100, cur = 0;
+    for(let i=0; i<SLOT_SYMBOLS.length; i++) { cur += SLOT_WEIGHTS[i]; if(r < cur) return SLOT_SYMBOLS[i]; }
+    return SLOT_SYMBOLS[0];
+}
+
+function slotMultiplier(reels) {
+    const [a,b,c] = reels;
+    if(a===b && b===c) {
+        if(a==='7️⃣') return 5.0;
+        if(a==='💎') return 4.0;
+        if(a==='⭐') return 3.0;
+        return 2.0;
+    }
+    if(a===b || b===c || a===c) return 1.3;
+    return 0;
+}
+
+function runSlots(callback) {
+    if(slotsSpinning) return;
+    slotsSpinning = true;
+    const results = [weightedSlotSymbol(), weightedSlotSymbol(), weightedSlotSymbol()];
+    const delays = [600, 900, 1200];
+    let symbols = ['🍒','🍋','🍊','🍇','⭐','💎','7️⃣'];
+
+    delays.forEach((delay, i) => {
+        let ticks = 0;
+        const maxTicks = 12 + i*4;
+        const interval = setInterval(() => {
+            document.getElementById('reel-'+i).innerText = symbols[Math.floor(Math.random()*symbols.length)];
+            ticks++;
+            if(ticks >= maxTicks) {
+                clearInterval(interval);
+                document.getElementById('reel-'+i).innerText = results[i];
+                if(i === 2) { slotsSpinning = false; callback(results); }
+            }
+        }, 80);
+    });
+}
+
+// --- МІНИ ---
+let minesState = null;
+
+window.updateMinesCount = () => {
+    const n = parseInt(document.getElementById('mines-count').value);
+    document.getElementById('mines-count-label').innerText = n;
+    const safeCells = 25 - n;
+    const mult = calcMinesMult(0, safeCells);
+    document.getElementById('mines-mult-label').innerText = mult.toFixed(2);
+};
+
+function calcMinesMult(opened, safeCells) {
+    if(opened === 0) return 1.0;
+    // multiplier grows as more safe cells are revealed
+    let m = 1.0;
+    for(let i=0; i<opened; i++) {
+        m *= (safeCells - i) > 0 ? (25 / (safeCells - i)) * 0.92 : 1;
+    }
+    return Math.min(parseFloat(m.toFixed(2)), 10.0);
+}
+
+function renderMinesGrid() {
+    let h = '';
+    for(let i=0; i<25; i++) {
+        const cell = minesState.cells[i];
+        let style = 'mines-cell';
+        let content = '?';
+        if(cell.revealed) {
+            content = cell.mine ? '💣' : '💚';
+            style += cell.mine ? ' mine-boom' : ' mine-safe';
+        }
+        const clickable = !cell.revealed && minesState.alive ? `onclick="minesReveal(${i})"` : '';
+        h += `<div class="${style}" ${clickable}>${content}</div>`;
+    }
+    document.getElementById('mines-grid').innerHTML = h;
+}
+
+window.minesReveal = (idx) => {
+    if(!minesState || !minesState.alive) return;
+    const cell = minesState.cells[idx];
+    cell.revealed = true;
+    if(cell.mine) {
+        minesState.alive = false;
+        // Reveal all mines
+        minesState.cells.forEach(c => { if(c.mine) c.revealed = true; });
+        renderMinesGrid();
+        document.getElementById('mines-ctrl').style.display = 'none';
+        const bt = minesState.bet;
+        s.b -= bt; save();
+        setTimeout(() => {
+            document.getElementById('g-stat').innerHTML = `<span style="color:var(--error)">-${bt.toFixed(2)} BB 💣</span><br><small>Бум! Наступив на міну</small>`;
+            minesState = null;
+            renderMinesGrid();
+            document.getElementById('mines-ctrl').style.display = 'none';
+        }, 700);
+    } else {
+        minesState.opened++;
+        const mult = calcMinesMult(minesState.opened, minesState.safeCells);
+        minesState.currentMult = mult;
+        document.getElementById('mines-curr-mult').innerText = mult.toFixed(2);
+        renderMinesGrid();
+        // Auto cashout if all safe revealed
+        if(minesState.opened >= minesState.safeCells) minesCashout();
+    }
+};
+
+window.minesCashout = () => {
+    if(!minesState || !minesState.alive || minesState.opened === 0) return;
+    const bt = minesState.bet;
+    const mult = minesState.currentMult;
+    const winAmount = (bt * mult - bt) * (s.p ? s.p.m : 1);
+    s.b += winAmount; s.x += Math.floor(bt / 2); save();
+    checkPetLevelUp();
+    document.getElementById('g-stat').innerHTML = `<span style="color:var(--success)">+${winAmount.toFixed(2)} BB 💰</span><br><small>Забрав x${mult.toFixed(2)}</small>`;
+    minesState.alive = false;
+    // Reveal all
+    minesState.cells.forEach(c => c.revealed = true);
+    renderMinesGrid();
+    document.getElementById('mines-ctrl').style.display = 'none';
+    minesState = null;
+};
+
+function startMines(bt) {
+    const mineCount = parseInt(document.getElementById('mines-count').value);
+    const safeCells = 25 - mineCount;
+    // Place mines
+    let positions = Array.from({length:25}, (_,i)=>i);
+    for(let i=positions.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[positions[i],positions[j]]=[positions[j],positions[i]];}
+    const mineSet = new Set(positions.slice(0, mineCount));
+    minesState = {
+        bet: bt,
+        mineCount,
+        safeCells,
+        opened: 0,
+        alive: true,
+        currentMult: 1.0,
+        cells: Array.from({length:25}, (_,i) => ({ mine: mineSet.has(i), revealed: false }))
+    };
+    document.getElementById('mines-curr-mult').innerText = '1.0';
+    document.getElementById('mines-ctrl').style.display = 'block';
+    document.getElementById('g-stat').innerHTML = `<span style="color:var(--accent)">⚡ Гра розпочата! Відкривай клітинки</span>`;
+    renderMinesGrid();
+}
+
 // --- ГЕЙМПЛЕЙ ---
 window.updUI = () => {
-    let g = document.getElementById('g-sel').value;
-    document.getElementById('ui-dice').style.display = (g==='dice')?'block':'none';
-    document.getElementById('ui-wheel').style.display = (g==='wheel')?'block':'none';
-    document.getElementById('ui-bj').style.display = (g==='bj')?'block':'none';
+    const g = document.getElementById('g-sel').value;
+    document.getElementById('ui-dice').style.display  = (g==='dice')  ? 'block':'none';
+    document.getElementById('ui-wheel').style.display = (g==='wheel') ? 'block':'none';
+    document.getElementById('ui-slots').style.display = (g==='slots') ? 'block':'none';
+    document.getElementById('ui-mines').style.display = (g==='mines') ? 'block':'none';
+    document.getElementById('ui-bj').style.display    = (g==='bj')    ? 'block':'none';
     if(g==='dice'){
         let h=""; for(let i=1;i<=6;i++) h+=`<button class="btn-s ${i===selN_val?'active':''}" style="padding:15px; margin:2px" onclick="selN(${i})">${i}</button>`;
         document.querySelector('.dice-grid').innerHTML=h;
     }
+    if(g==='wheel') { setTimeout(()=>drawWheel(wheelAngle), 50); }
+    if(g==='mines') updateMinesCount();
 };
 window.selN=(n)=>{ selN_val=n; updUI(); };
 
 window.play = () => {
-    let bt = parseFloat(document.getElementById('bet-a').value);
+    const bt = parseFloat(document.getElementById('bet-a').value);
     if(bt > s.b || bt <= 0 || isNaN(bt)) return alert("Мало BB!");
-    let g = document.getElementById('g-sel').value;
+    const g = document.getElementById('g-sel').value;
+
+    // Блокуємо повторну ставку якщо міни активні
+    if(g==='mines' && minesState && minesState.alive) return alert("Спочатку завершуй поточну гру!");
+
     document.getElementById('g-stat').innerText = "⏳ Очікування...";
 
-    if(g==='f50'){ let w=Math.random()>0.5; res(w, bt, 1.55, w?"Виграв!":"Програв"); }
-    else if(g==='dice'){ let r=Math.floor(Math.random()*6)+1; res(r===selN_val, bt, 2.05, `Випало ${r}`); }
+    if(g==='f50'){
+        let w=Math.random()>0.5; res(w, bt, 1.55, w?"Виграв!":"Програв");
+    }
+    else if(g==='dice'){
+        let r=Math.floor(Math.random()*6)+1; res(r===selN_val, bt, 2.05, `Випало ${r}`);
+    }
     else if(g==='wheel'){
-        let wh = document.getElementById('w-obj'); wh.style.transition="none"; wh.style.transform="rotate(0deg)";
-        let p = Math.random()*100; let m, deg;
-        if(p<55){ m=0; deg=Math.random()*198; }
-        else if(p<80){ m=1.4; deg=198+Math.random()*90; }
-        else if(p<95){ m=1.6; deg=288+Math.random()*54; }
-        else { m=1.8; deg=342+Math.random()*18; }
-        setTimeout(()=>{
-            wh.style.transition="transform 4s cubic-bezier(0.1, 0, 0.1, 1)";
-            wh.style.transform=`rotate(${1800+(360-deg)}deg)`;
-            setTimeout(()=>res(m>0, bt, m, `Множник x${m}`), 4100);
-        }, 50);
+        if(wheelSpinning) return;
+        let p=Math.random()*100, m;
+        if(p<55) m=0; else if(p<80) m=1.4; else if(p<95) m=1.6; else m=1.8;
+        spinWheel(m, 0);
+        setTimeout(()=> res(m>0, bt, m, `Множник x${m}`), 5200);
+    }
+    else if(g==='slots'){
+        if(slotsSpinning) return;
+        document.getElementById('g-stat').innerText = "🎰 Крутимо...";
+        runSlots((reels) => {
+            const m = slotMultiplier(reels);
+            res(m > 0, bt, m, reels.join(' '));
+        });
+    }
+    else if(g==='mines'){
+        startMines(bt);
+        return; // mines handles its own res
     }
     else if(g==='bj') startBJ(bt);
 };
