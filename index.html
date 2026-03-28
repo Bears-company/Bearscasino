@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
     <title>BEARS CASINO</title>
-    <link rel="stylesheet" href="style.css?v=2.7">
+    <link rel="stylesheet" href="style.css?v=2.8">
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -16,7 +16,7 @@
         <div style="font-weight:900; font-size:18px">BEARS CASINO</div>
         <div id="u-rank" style="font-size:10px; color:#8d99ae; font-weight:bold">РАНГ: 1</div>
     </div>
-    <div class="bal-card"><span id="bal-val">10</span> BB</div>
+    <div class="bal-card"><span id="bal-val">0</span> BB</div>
 </header>
 
 <div class="container">
@@ -41,10 +41,19 @@
                 <option value="wheel">🎡 Колесо (До x1.75)</option>
                 <option value="bj">🃏 Блекджек (x2.0)</option>
             </select>
+            
             <div id="ui-dice" style="display:none;"><div class="dice-grid"></div></div>
+            
             <div id="ui-wheel" style="display:none; text-align:center">
                 <div class="w-wrap"><div class="marker"></div><div id="w-obj" class="w-main"></div></div>
+                <div class="w-legend">
+                    <div class="leg-i"><div class="dot" style="background:var(--error)"></div> 0x</div>
+                    <div class="leg-i"><div class="dot" style="background:var(--success)"></div> 1.25x</div>
+                    <div class="leg-i"><div class="dot" style="background:#3b82f6"></div> 1.5x</div>
+                    <div class="leg-i"><div class="dot" style="background:var(--warning)"></div> 1.75x</div>
+                </div>
             </div>
+
             <div id="ui-bj" style="display:none; text-align:center; margin:15px 0;">
                 <div id="bj-dc" style="display:flex; justify-content:center; gap:5px; margin-bottom:10px"></div>
                 <div id="bj-pc" style="display:flex; justify-content:center; gap:5px"></div>
@@ -53,7 +62,8 @@
                     <button class="btn-s" onclick="bjDo('stop')" style="background:var(--error)">СТОП</button>
                 </div>
             </div>
-            <input type="number" id="bet-a" value="1" step="0.1" inputmode="decimal">
+
+            <input type="number" id="bet-a" value="1" step="0.1">
             <button class="btn" onclick="play()">ГРАТИ</button>
             <div id="g-stat" style="text-align:center; margin-top:15px; font-weight:bold; min-height:45px"></div>
         </div>
@@ -80,6 +90,6 @@
     <div id="admin-tab" class="nav-tab" style="display:none" onclick="tab('admin', this)">⚡</div>
 </nav>
 
-<script src="script.js?v=2.7"></script>
+<script src="script.js?v=2.8"></script>
 </body>
 </html>

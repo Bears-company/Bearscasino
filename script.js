@@ -17,6 +17,8 @@ const ADMINS = [8216362223, 2067230442];
 const myId = tg.initDataUnsafe?.user?.id || 101; 
 const myName = tg.initDataUnsafe?.user?.first_name || "Гравець";
 
+const DEADLINE = new Date("2026-04-04T00:00:00+03:00").getTime();
+
 const CASES = {
     basic: { n: "Базовий", p: 300, drop: [
         {n:'Собака', s:'🐶', r:'Звичайний', m:1.05, w:40, c:'#94a3b8'},
@@ -38,7 +40,7 @@ const CASES = {
         {n:'Лев', s:'🦁', r:'Легендарний', m:1.14, w:20, c:'#f43f5e'},
         {n:'Дракон', s:'🐲', r:'Легендарний', m:1.16, w:24, c:'#f43f5e'}
     ]},
-    ocean: { n: "Океан", p: 1500, drop: [
+    ocean: { n: "Океан 🌊", p: 1500, limited: true, drop: [
         {n:'Рибка', s:'🐟', r:'Незвичайний', m:1.1, w:40, c:'#3b82f6'},
         {n:'Тропічна рибка', s:'🐠', r:'Рідкісний', m:1.12, w:30, c:'#a855f7'},
         {n:'Акула', s:'🦈', r:'Епічний', m:1.15, w:20, c:'#f59e0b'},
@@ -46,14 +48,14 @@ const CASES = {
     ]}
 };
 
-let s = { b: 10, x: 0, r: 1, name: myName, p: null, inv: [], v: 2.7 };
+let s = { b: 0, x: 0, r: 1, name: myName, p: null, inv: [], v: 2.8 };
 let selN_val = 1;
 
 db.ref('players/' + myId).on('value', snap => {
     let d = snap.val();
     if(d) {
         s = d; if(!s.inv) s.inv = [];
-        if(s.v !== 2.7) { s.v = 2.7; save(); }
+        if(s.v !== 2.8) { s.v = 2.8; save(); }
     } else { db.ref('players/' + myId).set(s); }
     ren();
 });
@@ -88,13 +90,30 @@ window.tab = (t, el) => {
 
 function renderShop() {
     let h = "";
+    const now = Date.now();
     for(let k in CASES) {
-        h += `<div class="shop-item"><span>${CASES[k].n}</span><button class="btn-s" onclick="buyCase('${k}')">${CASES[k].p} BB</button></div>`;
+        const c = CASES[k];
+        if(c.limited && now > DEADLINE) continue; // Видаляємо Океан після дедлайну
+        
+        let timerStr = "";
+        if(c.limited) {
+            let diff = DEADLINE - now;
+            let d = Math.floor(diff / (1000 * 60 * 60 * 24));
+            let h = Math.floor((diff / (1000 * 60 * 60)) % 24);
+            let m = Math.floor((diff / 1000 / 60) % 60);
+            timerStr = `<span class="timer-tag" id="ocean-timer">Залишилось: ${d}д ${h}г ${m}хв</span>`;
+        }
+
+        h += `<div class="shop-item">
+            <div><span>${c.n}</span>${timerStr}</div>
+            <button class="btn-s" onclick="buyCase('${k}')">${c.p} BB</button>
+        </div>`;
     }
     document.getElementById('shop-list').innerHTML = h;
 }
 
 window.buyCase = (k) => {
+    if(CASES[k].limited && Date.now() > DEADLINE) return alert("Цей кейс більше недоступний!");
     let c = CASES[k]; if(s.b < c.p) return alert("Мало BB!");
     s.b -= c.p; save();
     document.getElementById('case-modal').style.display = 'flex';
@@ -119,7 +138,7 @@ window.buyCase = (k) => {
     setTimeout(() => {
         document.getElementById('case-res').innerHTML = `<span style="color:${win.c}">${win.n}</span>`;
         document.getElementById('case-close').style.display = 'block';
-        win.id = Date.now(); win.from = k; win.lvl = 1; s.inv.push(win); save();
+        win.id = Date.now(); win.lvl = 1; s.inv.push(win); save();
     }, 5600);
 };
 window.closeCase = () => document.getElementById('case-modal').style.display = 'none';
@@ -130,7 +149,7 @@ function renderInv() {
     let h = "";
     s.inv.forEach(p => {
         let isEq = s.p && s.p.id === p.id;
-        h += `<div class="shop-item"><span>${p.s} ${p.n} (x${p.m})</span><button class="btn-s" onclick="equip(${p.id})">${isEq?'ВЗЯТО':'ВЗЯТИ'}</button></div>`;
+        h += `<div class="shop-item"><span>${p.s} ${p.n}</span><button class="btn-s" onclick="equip(${p.id})">${isEq?'ВЗЯТО':'ВЗЯТИ'}</button></div>`;
     });
     list.innerHTML = h;
 }
@@ -140,7 +159,7 @@ function loadTop() {
     db.ref('players').once('value', snap => {
         let l = []; snap.forEach(c => { if(c.val().name) l.push(c.val()); });
         l.sort((a,b) => b.b - a.b);
-        let h = ""; l.slice(0,10).forEach((p, i) => h += `<div style="display:flex; justify-content:space-between; margin-bottom:10px"><span>${i+1}. ${p.name}</span><b>${Math.floor(p.b)} BB</b></div>`);
+        let h = ""; l.slice(0,10).forEach((p, i) => h += `<div style="display:flex; justify-content:space-between; margin-bottom:10px"><span>${i+1}. ${p.name}</span><b>${Math.floor(p.b)}</b></div>`);
         document.getElementById('leaderboard').innerHTML = h;
     });
 }
