@@ -1,84 +1,112 @@
 <!doctype html>
 <html lang="uk">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>BEARS CASINO</title>
-
-<link rel="stylesheet" href="style.css">
-
-<script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
+    <title>BEARS CASINO</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
-
 <body>
 
 <header>
     <div>
-        <div class="logo">BEARS CASINO</div>
-        <div class="sub">PET EVOLUTION</div>
+        <div style="font-weight:900; font-size:18px; color:white; letter-spacing:1px">BEARS CASINO</div>
+        <div id="u-rank" style="font-size:10px; color:var(--accent); font-weight:bold;">PET EVOLUTION</div>
     </div>
-
-    <div class="balance">
-        <span id="bal">0</span> BB
-    </div>
+    <div class="bal-card"><span id="bal-val">0</span> BB</div>
 </header>
 
 <div class="container">
+    <div class="glass" style="display:flex; align-items:center; gap:15px; border-left: 5px solid var(--accent);">
+        <div id="p-img" style="font-size:45px;">🥚</div>
+        <div style="flex:1">
+            <div id="p-rarity" class="rarity-tag">НЕМАЄ</div>
+            <div id="p-name" style="font-weight:bold; font-size:16px">Оберіть пета</div>
+            <div class="xp-bar"><div id="xp-f" class="xp-fill"></div></div>
+            <div style="display:flex; justify-content:space-between; font-size:10px;">
+                <span>x<span id="p-m">1.0</span></span>
+                <span id="xp-num">0/1000</span>
+                <span>LVL: <span id="p-l">1</span></span>
+            </div>
+        </div>
+    </div>
 
-<!-- PET -->
-<div class="glass pet-box">
-    <div id="pet-emoji">🥚</div>
-    <div>
-        <div id="pet-name">Немає пета</div>
-        <div id="pet-m">x1.0</div>
+    <div id="v-main" class="page">
+        <div class="glass">
+            <select id="g-sel" onchange="updUI()">
+                <option value="f50">⚖️ 50/50 (x1.55)</option>
+                <option value="dice">🎲 Кубик (x2.05)</option>
+                <option value="wheel">🎡 Колесо (x0 - x2.0)</option>
+                <option value="bj">🃏 Блекджек (x2.0)</option>
+            </select>
+
+            <div id="ui-dice" style="display:none; margin:15px 0;">
+                <div class="dice-grid">
+                    <button class="d-btn" onclick="selN(1)">1</button><button class="d-btn" onclick="selN(2)">2</button><button class="d-btn" onclick="selN(3)">3</button>
+                    <button class="d-btn" onclick="selN(4)">4</button><button class="d-btn" onclick="selN(5)">5</button><button class="d-btn" onclick="selN(6)">6</button>
+                </div>
+            </div>
+
+            <div id="ui-wheel" style="display:none; text-align:center; padding:20px 0;">
+                <div class="w-wrap">
+                    <div class="marker">▼</div>
+                    <div id="w-obj" class="w-main">
+                        <div class="w-sec" style="transform:rotate(0deg);background:#ff4757">x0</div>
+                        <div class="w-sec" style="transform:rotate(72deg);background:#2ed573">x2</div>
+                        <div class="w-sec" style="transform:rotate(144deg);background:#ffa502">x0.5</div>
+                        <div class="w-sec" style="transform:rotate(216deg);background:#1e90ff">x1.5</div>
+                        <div class="w-sec" style="transform:rotate(288deg);background:#70a1ff">x0</div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="ui-bj" style="display:none; text-align:center; margin:15px 0;">
+                <div id="bj-dc" class="card-row"></div>
+                <div id="bj-pc" class="card-row"></div>
+                <div id="bj-ctrl" style="display:none; gap:10px; justify-content:center; margin-top:15px;">
+                    <button class="btn-s" onclick="bjDo('hit')">ЩЕ</button>
+                    <button class="btn-s" onclick="bjDo('stop')" style="background:var(--error)">СТОП</button>
+                </div>
+            </div>
+
+            <input type="number" id="bet-a" value="10" step="1">
+            <button class="btn" onclick="play()">ГРАТИ</button>
+            <div id="g-stat" style="text-align:center; margin-top:10px; font-weight:bold;"></div>
+        </div>
+    </div>
+
+    <div id="v-shop" class="page" style="display:none">
+        <div class="shop-tabs">
+            <div class="s-tab active" onclick="setShop('cases', this)">📦 Кейси</div>
+            <div class="s-tab" onclick="setShop('market', this)">🛒 Ринок</div>
+        </div>
+        <div id="shop-list" class="glass"></div>
+    </div>
+
+    <div id="v-inv" class="page" style="display:none">
+        <div class="glass">
+            <h3>🎒 ВАШІ ПЕТИ</h3>
+            <div id="inv-list"></div>
+        </div>
+    </div>
+
+    <div id="v-top" class="page" style="display:none">
+        <div class="glass">
+            <h3 style="color:var(--warning)">🏆 ТОП ГРАВЦІВ</h3>
+            <div id="leaderboard"></div>
+        </div>
     </div>
 </div>
 
-<!-- MAIN -->
-<div id="main" class="page active">
-
-<div class="glass">
-
-<select id="game">
-    <option value="coin">50/50</option>
-    <option value="dice">Кубик</option>
-    <option value="wheel">Колесо</option>
-</select>
-
-<input id="bet" type="number" value="10">
-
-<button onclick="play()">ГРАТИ</button>
-
-<div id="result"></div>
-
-</div>
-</div>
-
-<!-- SHOP -->
-<div id="shop" class="page">
-<div class="glass" id="cases"></div>
-</div>
-
-<!-- INVENTORY -->
-<div id="inv" class="page">
-<div class="glass" id="inventory"></div>
-</div>
-
-</div>
-
 <nav>
-<div onclick="openTab('main')">🎮</div>
-<div onclick="openTab('shop')">📦</div>
-<div onclick="openTab('inv')">🎒</div>
+    <div class="nav-tab active" onclick="tab('main', this)">🎮</div>
+    <div class="nav-tab" onclick="tab('shop', this)">📦</div>
+    <div class="nav-tab" onclick="tab('inv', this)">🎒</div>
+    <div class="nav-tab" onclick="tab('top', this)">🏆</div>
 </nav>
-
-<!-- CASE -->
-<div id="case">
-<div id="line"></div>
-<div id="win"></div>
-</div>
 
 <script src="script.js"></script>
 </body>

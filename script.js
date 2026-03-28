@@ -1,189 +1,177 @@
+// Конфігурація та ініціалізація Firebase (залиш свою)
 const firebaseConfig = {
     apiKey: "AIzaSyD7F2lrec5XWyMWG7J0uW6IhEKD-LJ4jRY",
     authDomain: "bearscasino-bcded.firebaseapp.com",
     projectId: "bearscasino-bcded",
     databaseURL: "https://bearscasino-bcded-default-rtdb.europe-west1.firebasedatabase.app"
 };
-
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 const tg = window.Telegram.WebApp;
 
-const ADMINS = [8216362223, 2067230442];
-const myId = tg.initDataUnsafe?.user?.id || 1;
+const myId = tg.initDataUnsafe?.user?.id || 101; 
 const myName = tg.initDataUnsafe?.user?.first_name || "Гравець";
 
-
-// ===== ПЕТИ =====
-const PETS = {
-    dog:{n:'Собака',s:'🐶',r:'Звичайний',m:1.05,c:'#94a3b8'},
-    cat:{n:'Кіт',s:'🐱',r:'Звичайний',m:1.05,c:'#94a3b8'},
-    rabbit:{n:'Кролик',s:'🐰',r:'Незвичайний',m:1.08,c:'#3b82f6'},
-    fox:{n:'Лисиця',s:'🦊',r:'Незвичайний',m:1.09,c:'#3b82f6'},
-    wolf:{n:'Вовк',s:'🐺',r:'Рідкісний',m:1.11,c:'#6366f1'},
-    bee:{n:'Бджола',s:'🐝',r:'Рідкісний',m:1.12,c:'#6366f1'},
-    panda:{n:'Панда',s:'🐼',r:'Епік',m:1.14,c:'#a855f7'},
-    lion:{n:'Лев',s:'🦁',r:'Легендарний',m:1.16,c:'#f59e0b'},
-    dragon:{n:'Дракон',s:'🐉',r:'Легендарний',m:1.17,c:'#f59e0b'},
-    fish:{n:'Рибка',s:'🐟',r:'Рідкісний',m:1.16,c:'#6366f1'},
-    tfish:{n:'Тропічна рибка',s:'🐠',r:'Епік',m:1.19,c:'#a855f7'},
-    shark:{n:'Акула',s:'🦈',r:'Легендарний',m:1.23,c:'#f59e0b'},
-    octo:{n:'Восьминіг',s:'🐙',r:'Міфічний',m:1.3,c:'#ef4444'}
-};
-
-
-// ===== КЕЙСИ =====
-const CASES = {
-    basic:{n:"Базовий",p:285,drop:[{...PETS.dog,w:40},{...PETS.cat,w:40},{...PETS.rabbit,w:20}]},
-    uncommon:{n:"Незвичайний",p:525,drop:[{...PETS.rabbit,w:46},{...PETS.fox,w:40},{...PETS.wolf,w:14}]},
-    rare:{n:"Рідкісний",p:875,drop:[{...PETS.wolf,w:50},{...PETS.bee,w:40},{...PETS.panda,w:10}]},
-    legend:{n:"Легендарний",p:1200,drop:[{...PETS.panda,w:56},{...PETS.lion,w:24},{...PETS.dragon,w:20}]},
-    ocean:{n:"Океан",p:1500,drop:[{...PETS.fish,w:45},{...PETS.tfish,w:35},{...PETS.shark,w:15},{...PETS.octo,w:5}]}
-};
-
-
-// ===== СТАН =====
-let s = { b:0, name: myName, p:null, inv:[] };
+let s = { b: 0, name: myName, p: null, inv: [] };
 let shopMode = 'cases';
 let selN_val = 1;
+let bj = null;
 
-
-// ===== LOAD =====
+// Завантаження даних
 db.ref('players/' + myId).on('value', snap => {
     let d = snap.val();
-    if(d){ s = d; if(!s.inv) s.inv=[]; }
-    else db.ref('players/' + myId).set(s);
-    render();
+    if(d) { s = d; if(!s.inv) s.inv = []; } 
+    else { db.ref('players/' + myId).set(s); }
+    ren();
 });
 
-
-// ===== UI =====
-function render(){
-    document.getElementById('bal-val').innerText = s.b.toFixed(2);
-
-    if(s.p){
+function ren() {
+    document.getElementById('bal-val').innerText = Math.floor(s.b);
+    if(s.p) {
         document.getElementById('p-img').innerText = s.p.s;
         document.getElementById('p-name').innerText = s.p.n;
-        document.getElementById('p-m').innerText = s.p.m;
-    }
-
-    if(ADMINS.includes(Number(myId))){
-        document.getElementById('admin-tab').style.display = 'block';
+        document.getElementById('p-m').innerText = (s.p.m || 1).toFixed(3);
+        document.getElementById('p-l').innerText = s.p.lvl || 1;
+        let nx = Math.floor(1000 * Math.pow(1.2, (s.p.lvl||1)-1));
+        document.getElementById('xp-f').style.width = ((s.p.xp||0)/nx*100) + "%";
+        document.getElementById('xp-num').innerText = `${s.p.xp||0}/${nx}`;
+        let t = document.getElementById('p-rarity'); t.innerText = s.p.r; t.style.background = s.p.c;
     }
 }
 
-
-// ===== SHOP =====
-function renderShop(){
-    let h="";
-    for(let k in CASES){
-        h+=`<div class="market-item">
-        <span>${CASES[k].n}</span>
-        <button class="btn-s" onclick="buyCase('${k}')">${CASES[k].p}</button>
-        </div>`;
-    }
-    document.getElementById('shop-list').innerHTML=h;
-}
-
-
-// ===== КЕЙС =====
-window.buyCase = (key)=>{
-    let c = CASES[key];
-    if(s.b < c.p) return alert("Немає грошей");
-
-    s.b -= c.p;
-
-    let total=c.drop.reduce((a,b)=>a+b.w,0);
-    let rand=Math.random()*total;
-    let cur=0, win;
-
-    for(let d of c.drop){
-        cur+=d.w;
-        if(rand<=cur){ win=d; break; }
-    }
-
-    let pet={...win,id:Date.now()};
-    s.inv.push(pet);
-
-    db.ref('players/'+myId).set(s);
-
-    alert("Випав: "+pet.n);
+// Навігація
+window.tab = (t, el) => {
+    document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
+    document.querySelectorAll('.nav-tab').forEach(n => n.classList.remove('active'));
+    document.getElementById('v-'+t).style.display = 'block';
+    el.classList.add('active');
+    if(t==='shop') renderShop();
+    if(t==='inv') renderInv();
+    if(t==='top') loadTop();
 };
 
+// --- РИНОК ТА МАГАЗИН ---
+window.setShop = (m, el) => {
+    shopMode = m;
+    document.querySelectorAll('.s-tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    renderShop();
+};
 
-// ===== ІНВ =====
-function renderInv(){
-    document.getElementById('inv-list').innerHTML = s.inv.map((p,i)=>`
+function renderShop() {
+    let list = document.getElementById('shop-list');
+    if(shopMode === 'cases') {
+        list.innerHTML = `<div class="market-item"><span>Common Case 🐾</span><button class="btn-s" onclick="buyCase()">250 BB</button></div>`;
+    } else {
+        db.ref('market').once('value', snap => {
+            let h = "";
+            snap.forEach(l => {
+                let lot = l.val();
+                h += `<div class="market-item"><span>${lot.p.s} ${lot.p.n}</span><button class="btn-s" onclick="buyMarket('${l.key}')">${lot.price} BB</button></div>`;
+            });
+            list.innerHTML = h || "Ринок порожній";
+        });
+    }
+}
+
+window.sellPet = (idx) => {
+    let pr = prompt("Ціна продажу:");
+    if(!pr || isNaN(pr)) return;
+    let pet = s.inv[idx];
+    db.ref('market').push({p: pet, price: Number(pr), seller: myId});
+    s.inv.splice(idx, 1);
+    if(s.p && s.p.id === pet.id) s.p = null;
+    db.ref('players/'+myId).set(s);
+    renderInv();
+};
+
+// --- ІГРОВА ЛОГІКА ---
+window.play = () => {
+    let bt = parseFloat(document.getElementById('bet-a').value);
+    if(bt > s.b || bt <= 0) return alert("Недостатньо коштів!");
+    if(!s.p) return alert("Оберіть пета в інвентарі!");
+
+    let g = document.getElementById('g-sel').value;
+    if(g==='f50') res(Math.random()>0.5, bt, 1.55, "50/50");
+    else if(g==='dice') res(Math.floor(Math.random()*6)+1 === selN_val, bt, 2.05, "Кубик");
+    else if(g==='wheel') spinWheel(bt);
+    else if(g==='bj') startBJ(bt);
+};
+
+function spinWheel(bt) {
+    let deg = 720 + Math.floor(Math.random()*360);
+    let obj = document.getElementById('w-obj');
+    obj.style.transition = "transform 3s cubic-bezier(0.1, 0, 0.2, 1)";
+    obj.style.transform = `rotate(${deg}deg)`;
+    setTimeout(() => {
+        let f = deg % 360; let m = 0;
+        if(f<72) m=0; else if(f<144) m=2; else if(f<216) m=0.5; else if(f<288) m=1.5; else m=0;
+        res(m>0, bt, m, "Колесо");
+        obj.style.transition = "none"; obj.style.transform = `rotate(${f}deg)`;
+    }, 3000);
+}
+
+// Блекджек
+function startBJ(bt) {
+    bj = {p:[dr(),dr()], d:[dr()], bt};
+    document.getElementById('bj-ctrl').style.display='flex';
+    reBJ();
+}
+function bjDo(a) {
+    if(a==='hit') { bj.p.push(dr()); if(sum(bj.p)>21) finishBJ(false); else reBJ(); }
+    else { while(sum(bj.d)<17) bj.d.push(dr()); finishBJ(sum(bj.p)>sum(bj.d) || sum(bj.d)>21); }
+}
+function sum(a) { return a.reduce((x,y)=>x+y,0); }
+function dr() { return Math.floor(Math.random()*10)+2; }
+function reBJ() {
+    document.getElementById('bj-pc').innerHTML = bj.p.map(c=>`<div class="card">${c}</div>`).join('');
+    document.getElementById('bj-dc').innerHTML = bj.d.map(c=>`<div class="card">${c}</div>`).join('');
+}
+function finishBJ(w) {
+    document.getElementById('bj-ctrl').style.display='none';
+    res(w, bj.bt, 2, "Блекджек");
+}
+
+function res(win, bt, m, msg) {
+    if(win) {
+        let w = (bt * m - bt) * s.p.m; s.b += w;
+        s.p.xp = (s.p.xp || 0) + Math.floor(bt);
+        let nx = Math.floor(1000 * Math.pow(1.2, (s.p.lvl||1)-1));
+        if(s.p.xp >= nx) { s.p.xp -= nx; s.p.lvl++; s.p.m += 0.005; }
+        document.getElementById('g-stat').innerHTML = `<span style="color:var(--success)">+${w.toFixed(1)} BB</span>`;
+    } else {
+        s.b -= bt;
+        document.getElementById('g-stat').innerHTML = `<span style="color:var(--error)">-${bt} BB</span>`;
+    }
+    db.ref('players/'+myId).set(s);
+}
+
+function loadTop() {
+    db.ref('players').once('value', snap => {
+        let a = []; snap.forEach(c => { if(c.val().name) a.push(c.val()); });
+        a.sort((x,y)=>y.b-x.b);
+        document.getElementById('leaderboard').innerHTML = a.slice(0,10).map((p,i)=>`
+            <div class="market-item"><span>${i+1}. ${p.name}</span><b>${Math.floor(p.b)} BB</b></div>
+        `).join('');
+    });
+}
+
+function renderInv() {
+    document.getElementById('inv-list').innerHTML = s.inv.map((p, i) => `
         <div class="market-item">
             <span>${p.s} ${p.n}</span>
-            <button onclick="equip(${i})">Взяти</button>
+            <div style="display:flex; gap:5px">
+                <button class="btn-s" onclick="equip(${i})">${s.p?.id===p.id?'✅':'ВЗЯТИ'}</button>
+                <button class="btn-s" style="background:var(--warning)" onclick="sellPet(${i})">💰</button>
+            </div>
         </div>
     `).join('');
 }
-
-window.equip = (i)=>{
-    s.p=s.inv[i];
-    db.ref('players/'+myId).set(s);
-};
-
-
-// ===== ІГРИ =====
-window.play = ()=>{
-    let bt = parseFloat(document.getElementById('bet-a').value);
-    if(bt > s.b) return;
-
-    let g=document.getElementById('g-sel').value;
-
-    if(g==='f50') res(Math.random()>0.5,bt,1.55);
-    if(g==='dice') res(Math.floor(Math.random()*6)+1===selN_val,bt,2.05);
-
-    if(g==='wheel'){
-        let r=Math.random()*100;
-        let m=0;
-        if(r<55)m=0;
-        else if(r<80)m=1.4;
-        else if(r<95)m=1.6;
-        else m=1.8;
-
-        res(m>0,bt,m);
-    }
-};
-
-function res(win,bt,m){
-    if(win){
-        let w=(bt*m-bt)*(s.p?.m||1);
-        s.b+=w;
-    } else s.b-=bt;
-
-    db.ref('players/'+myId).set(s);
-}
-
-
-// ===== ADMIN =====
-function loadAdmin(){
-    document.getElementById('admin-list').innerHTML=`
-    <div class="glass">
-        <button onclick="giveBal()">+</button>
-        <button onclick="takeBal()">-</button>
-    </div>`;
-}
-
-window.giveBal=()=>{
-    let id=prompt("ID");
-    let sum=Number(prompt("Сума"));
-    db.ref('players/'+id).once('value',s2=>{
-        let u=s2.val();
-        u.b+=sum;
-        db.ref('players/'+id).set(u);
-    });
-};
-
-window.takeBal=()=>{
-    let id=prompt("ID");
-    let sum=Number(prompt("Сума"));
-    db.ref('players/'+id).once('value',s2=>{
-        let u=s2.val();
-        u.b-=sum;
-        db.ref('players/'+id).set(u);
-    });
+window.equip = (i) => { s.p = s.inv[i]; db.ref('players/'+myId).set(s); renderInv(); };
+window.selN = (n) => { selN_val = n; document.querySelectorAll('.d-btn').forEach(b=>b.style.background='#30363d'); event.target.style.background='var(--accent)'; };
+window.updUI = () => {
+    let g = document.getElementById('g-sel').value;
+    document.getElementById('ui-dice').style.display = g==='dice'?'block':'none';
+    document.getElementById('ui-wheel').style.display = g==='wheel'?'block':'none';
+    document.getElementById('ui-bj').style.display = g==='bj'?'block':'none';
 };

@@ -1,96 +1,29 @@
-body{
-margin:0;
-background:#020409;
-color:white;
-font-family:sans-serif;
+:root {
+    --bg: #030508; --accent: #58a6ff; --glass: rgba(13, 17, 23, 0.7);
+    --glass-border: rgba(255, 255, 255, 0.06); --text: #c9d1d9;
+    --success: #238636; --error: #da3633; --warning: #f59e0b;
 }
+body { margin:0; background:var(--bg); color:var(--text); font-family:sans-serif; overflow:hidden; display:flex; flex-direction:column; height:100vh; }
+.container { flex:1; overflow-y:auto; padding:15px; padding-bottom:80px; }
+.glass { background:var(--glass); border:1px solid var(--glass-border); padding:15px; border-radius:15px; margin-bottom:10px; }
+.rarity-tag { font-size:9px; padding:2px 8px; border-radius:5px; color:white; display:inline-block; font-weight:900; background:#333; }
+.xp-bar { width:100%; height:6px; background:rgba(255,255,255,0.1); border-radius:3px; margin:5px 0; overflow:hidden; }
+.xp-fill { height:100%; background:var(--accent); width:0%; transition:width 0.3s; }
+.btn { width:100%; padding:12px; border-radius:10px; border:none; background:var(--accent); color:white; font-weight:bold; }
+.btn-s { padding:6px 12px; border:none; border-radius:6px; background:#30363d; color:white; font-size:11px; }
 
-header{
-display:flex;
-justify-content:space-between;
-padding:15px;
-}
+/* КАРТКИ ТА КОЛЕСО */
+.card-row { display:flex; justify-content:center; gap:8px; margin-bottom:10px; min-height:50px; }
+.card { width:35px; height:50px; background:white; color:black; border-radius:5px; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:18px; }
+.w-wrap { position:relative; width:180px; height:180px; margin:0 auto; }
+.w-main { width:100%; height:100%; border-radius:50%; border:4px solid #333; position:relative; overflow:hidden; }
+.w-sec { position:absolute; width:50%; height:50%; transform-origin:100% 100%; display:flex; align-items:center; justify-content:center; font-size:10px; color:white; font-weight:bold; }
+.marker { position:absolute; top:-10px; left:50%; transform:translateX(-50%); color:var(--accent); font-size:20px; z-index:5; }
 
-.logo{font-weight:900}
-.sub{font-size:10px;color:#58a6ff}
-
-.balance{
-background:rgba(255,255,255,0.05);
-padding:10px;
-border-radius:10px;
-}
-
-.container{
-padding:10px;
-padding-bottom:80px;
-}
-
-.glass{
-background:rgba(255,255,255,0.05);
-border:1px solid rgba(255,255,255,0.1);
-padding:15px;
-border-radius:15px;
-margin-bottom:10px;
-}
-
-button{
-width:100%;
-padding:10px;
-background:#58a6ff;
-border:none;
-border-radius:10px;
-color:white;
-margin-top:10px;
-}
-
-.pet-box{
-display:flex;
-gap:10px;
-align-items:center;
-}
-
-.page{display:none}
-.page.active{display:block}
-
-nav{
-position:fixed;
-bottom:0;
-width:100%;
-display:flex;
-background:#000;
-}
-
-nav div{
-flex:1;
-text-align:center;
-padding:15px;
-}
-
-#case{
-position:fixed;
-top:0;
-left:0;
-width:100%;
-height:100%;
-background:black;
-display:none;
-justify-content:center;
-align-items:center;
-flex-direction:column;
-}
-
-#line{
-display:flex;
-transition:4s;
-}
-
-.item{
-width:80px;
-height:80px;
-background:#111;
-margin:5px;
-display:flex;
-align-items:center;
-justify-content:center;
-border-radius:10px;
-}
+.shop-tabs { display:flex; gap:8px; margin-bottom:10px; }
+.s-tab { flex:1; padding:10px; text-align:center; background:rgba(255,255,255,0.05); border-radius:8px; font-size:12px; }
+.s-tab.active { background:var(--accent); }
+.market-item { display:flex; justify-content:space-between; align-items:center; padding:10px; border-bottom:1px solid var(--glass-border); }
+nav { position:fixed; bottom:0; width:100%; height:65px; display:flex; background:#0a0c10; border-top:1px solid var(--glass-border); }
+.nav-tab { flex:1; text-align:center; padding:20px; font-size:20px; opacity:0.4; }
+.nav-tab.active { opacity:1; color:var(--accent); }
