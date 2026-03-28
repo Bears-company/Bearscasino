@@ -21,30 +21,31 @@ const myName = tg.initDataUnsafe?.user?.first_name || "Гравець";
 const DEADLINE = new Date("2026-04-04T00:00:00+03:00").getTime();
 
 const CASES = {
-    basic: { n: "Common Case 🐾", p: 300, drop: [
+    basic: { n: "Common Case 🐾", p: 285, drop: [
         {n:'Собака', s:'🐶', r:'Звичайний', m:1.05, w:40, c:'#94a3b8'},
         {n:'Кіт', s:'🐱', r:'Звичайний', m:1.05, w:40, c:'#94a3b8'},
-        {n:'Кролик', s:'🐰', r:'Незвичайний', m:1.07, w:20, c:'#3b82f6'}
+        {n:'Кролик', s:'🐰', r:'Незвичайний', m:1.08, w:20, c:'#3b82f6'}
     ]},
-    uncommon: { n: "Rare Case 🌟", p: 550, drop: [
-        {n:'Кролик', s:'🐰', r:'Незвичайний', m:1.07, w:43, c:'#3b82f6'},
-        {n:'Лисиця', s:'🦊', r:'Незвичайний', m:1.07, w:43, c:'#3b82f6'},
-        {n:'Вовк', s:'🐺', r:'Рідкісний', m:1.09, w:14, c:'#a855f7'}
+    uncommon: { n: "Rare Case 🌟", p: 525, drop: [
+        {n:'Кролик', s:'🐰', r:'Незвичайний', m:1.08, w:46, c:'#3b82f6'},
+        {n:'Лисиця', s:'🦊', r:'Незвичайний', m:1.09, w:40, c:'#3b82f6'},
+        {n:'Вовк', s:'🐺', r:'Рідкісний', m:1.11, w:14, c:'#a855f7'}
     ]},
-    rare: { n: "Epic Case 💎", p: 850, drop: [
-        {n:'Вовк', s:'🐺', r:'Рідкісний', m:1.09, w:45, c:'#a855f7'},
-        {n:'Бджола', s:'🐝', r:'Рідкісний', m:1.09, w:45, c:'#a855f7'},
-        {n:'Панда', s:'🐼', r:'Епічний', m:1.12, w:10, c:'#f59e0b'}
+    rare: { n: "Epic Case 💎", p: 875, drop: [
+        {n:'Вовк', s:'🐺', r:'Рідкісний', m:1.11, w:50, c:'#a855f7'},
+        {n:'Бджола', s:'🐝', r:'Рідкісний', m:1.12, w:40, c:'#a855f7'},
+        {n:'Панда', s:'🐼', r:'Епічний', m:1.14, w:10, c:'#f59e0b'}
     ]},
-    legend: { n: "Legendary Case 👑", p: 1250, drop: [
-        {n:'Панда', s:'🐼', r:'Епічний', m:1.12, w:56, c:'#f59e0b'},
-        {n:'Лев', s:'🦁', r:'Легендарний', m:1.14, w:20, c:'#f43f5e'},
-        {n:'Дракон', s:'🐲', r:'Легендарний', m:1.16, w:24, c:'#f43f5e'}
+    legend: { n: "Legendary Case 👑", p: 1200, drop: [
+        {n:'Панда', s:'🐼', r:'Епічний', m:1.14, w:56, c:'#f59e0b'},
+        {n:'Лев', s:'🦁', r:'Легендарний', m:1.16, w:24, c:'#f43f5e'},
+        {n:'Дракон', s:'🐲', r:'Легендарний', m:1.17, w:20, c:'#f43f5e'}
     ]},
     ocean: { n: "Ocean Case 🌊", p: 1500, limited: true, drop: [
-        {n:'Рибка', s:'🐟', r:'Незвичайний', m:1.1, w:60, c:'#3b82f6'},
-        {n:'Акула', s:'🦈', r:'Епічний', m:1.15, w:30, c:'#f59e0b'},
-        {n:'Восьминіг', s:'🐙', r:'Легендарний', m:1.19, w:10, c:'#f43f5e'}
+        {n:'Рибка', s:'🐟', r:'Рідкісний', m:1.16, w:45, c:'#a855f7'},
+        {n:'Тропічна рибка', s:'🐠', r:'Епічний', m:1.19, w:35, c:'#f59e0b'},
+        {n:'Акула', s:'🦈', r:'Легендарний', m:1.23, w:15, c:'#f43f5e'},
+        {n:'Восьминіг', s:'🐙', r:'Міфічний', m:1.3, w:5, c:'#bf40bf'}
     ]}
 };
 
@@ -205,15 +206,15 @@ window.play = () => {
     let g = document.getElementById('g-sel').value;
     document.getElementById('g-stat').innerText = "⏳ Очікування...";
 
-    if(g==='f50'){ let w=Math.random()>0.5; res(w, bt, 1.45, w?"Виграв!":"Програв"); }
-    else if(g==='dice'){ let r=Math.floor(Math.random()*6)+1; res(r===selN_val, bt, 1.45, `Випало ${r}`); }
+    if(g==='f50'){ let w=Math.random()>0.5; res(w, bt, 1.55, w?"Виграв!":"Програв"); }
+    else if(g==='dice'){ let r=Math.floor(Math.random()*6)+1; res(r===selN_val, bt, 2.05, `Випало ${r}`); }
     else if(g==='wheel'){
         let wh = document.getElementById('w-obj'); wh.style.transition="none"; wh.style.transform="rotate(0deg)";
         let p = Math.random()*100; let m, deg;
-        if(p<45){ m=0; deg=Math.random()*162; }
-        else if(p<80){ m=1.25; deg=162+Math.random()*126; }
-        else if(p<95){ m=1.5; deg=288+Math.random()*54; }
-        else { m=1.75; deg=342+Math.random()*18; }
+        if(p<55){ m=0; deg=Math.random()*198; }
+        else if(p<80){ m=1.4; deg=198+Math.random()*90; }
+        else if(p<95){ m=1.6; deg=288+Math.random()*54; }
+        else { m=1.8; deg=342+Math.random()*18; }
         setTimeout(()=>{
             wh.style.transition="transform 4s cubic-bezier(0.1, 0, 0.1, 1)";
             wh.style.transform=`rotate(${1800+(360-deg)}deg)`;
