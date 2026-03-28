@@ -1,31 +1,74 @@
-:root {
-    --bg: #030508; --accent: #58a6ff; --glass: rgba(13, 17, 23, 0.7);
-    --glass-border: rgba(255, 255, 255, 0.06); --text: #c9d1d9;
-    --success: #238636; --error: #da3633; --warning: #f59e0b;
+body{margin:0;background:#030508;color:white;font-family:sans-serif}
+
+header{
+display:flex;
+justify-content:space-between;
+padding:15px;
 }
-body { margin: 0; background: var(--bg); color: var(--text); font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-.container { flex: 1; overflow-y: auto; padding: 15px; padding-bottom: 80px; }
-.glass { background: var(--glass); border: 1px solid var(--glass-border); padding: 15px; border-radius: 15px; margin-bottom: 10px; }
-.rarity-tag { font-size: 9px; padding: 2px 8px; border-radius: 5px; color: white; display: inline-block; font-weight: 900; }
-.xp-bar { width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; margin: 5px 0; }
-.xp-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.3s; }
-.btn { width: 100%; padding: 12px; border-radius: 10px; border: none; background: var(--accent); color: white; font-weight: bold; margin-top: 10px; }
-.btn-s { padding: 8px 12px; border: none; border-radius: 6px; background: #30363d; color: white; font-size: 11px; }
 
-/* КОЛЕСО */
-.w-wrap { position: relative; width: 200px; height: 200px; margin: 0 auto; }
-.w-main { width: 100%; height: 100%; border-radius: 50%; border: 5px solid #333; position: relative; overflow: hidden; }
-.w-sec { position: absolute; width: 50%; height: 50%; transform-origin: 100% 100%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; color: white; }
-.marker { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); color: var(--accent); z-index: 10; font-size: 20px; }
+.container{padding:10px}
 
-/* БЛЕКДЖЕК */
-.card-row { display: flex; justify-content: center; gap: 8px; min-height: 50px; margin-bottom: 10px; }
-.card { width: 35px; height: 50px; background: white; color: black; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+.glass{
+background:#111;
+padding:10px;
+border-radius:10px;
+margin-bottom:10px;
+}
 
-.shop-tabs { display: flex; gap: 10px; margin-bottom: 10px; }
-.s-tab { flex: 1; padding: 10px; text-align: center; background: rgba(255,255,255,0.05); border-radius: 10px; font-size: 12px; }
-.s-tab.active { background: var(--accent); color: white; }
-.market-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid var(--glass-border); }
-nav { position: fixed; bottom: 0; width: 100%; height: 65px; display: flex; background: #0a0c10; border-top: 1px solid var(--glass-border); }
-.nav-tab { flex: 1; text-align: center; padding: 20px; font-size: 20px; opacity: 0.5; }
-.nav-tab.active { opacity: 1; color: var(--accent); }
+.btn{
+width:100%;
+padding:10px;
+background:#58a6ff;
+border:none;
+border-radius:10px;
+color:white;
+}
+
+.shop-tabs{display:flex}
+.s-tab{flex:1;padding:10px;background:#222;text-align:center}
+.s-tab.active{background:#58a6ff}
+
+.market-item{
+display:flex;
+justify-content:space-between;
+padding:10px;
+border-bottom:1px solid #333;
+}
+
+nav{
+position:fixed;
+bottom:0;
+width:100%;
+display:flex;
+background:#000;
+}
+
+.nav-tab{flex:1;text-align:center;padding:15px}
+
+.case-item{
+min-width:80px;
+height:80px;
+background:#111;
+margin:5px;
+display:flex;
+flex-direction:column;
+align-items:center;
+justify-content:center;
+border-radius:10px;
+}
+
+#case-open{
+position:fixed;
+top:0;left:0;
+width:100%;height:100%;
+background:rgba(0,0,0,0.9);
+display:none;
+flex-direction:column;
+justify-content:center;
+align-items:center;
+}
+
+#case-line{
+display:flex;
+transition:4s;
+}
