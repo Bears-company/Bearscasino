@@ -1,23 +1,23 @@
-/* --- ОСНОВНІ ЗМІННІ ТА ФОН --- */
+/* --- ГЛОБАЛЬНІ ЗМІННІ ТА ОНОВЛЕНИЙ ФОН --- */
 :root {
-    --bg: #05070a; 
-    --glass: rgba(13, 17, 23, 0.7);
-    --glass-border: rgba(255, 255, 255, 0.08);
+    --bg: #030508; /* Глибокий чорний */
     --accent: #58a6ff;
+    --glass: rgba(13, 17, 23, 0.7);
+    --glass-border: rgba(255, 255, 255, 0.06);
+    --card-bg: linear-gradient(145deg, rgba(28, 33, 40, 0.9), rgba(17, 20, 24, 0.9));
+    --text: #c9d1d9;
     --success: #238636;
     --error: #da3633;
     --warning: #f59e0b;
     --purple: #bf40bf;
-    --text: #c9d1d9;
-    --card-gradient: linear-gradient(145deg, rgba(28, 33, 40, 0.9), rgba(17, 20, 24, 0.9));
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
 body { 
     margin: 0; 
-    font-family: 'Segoe UI', Roboto, Helvetica, sans-serif; 
-    background: var(--bg); 
+    font-family: 'Segoe UI', system-ui, sans-serif; 
+    background-color: var(--bg) !important; /* Примусово чорний фон */
     color: var(--text); 
     height: 100vh; 
     overflow: hidden; 
@@ -26,32 +26,35 @@ body {
     position: relative;
 }
 
-/* Ефект темно-синіх розмитих плям на фоні */
+/* --- ДЕКОРАТИВНІ ТЕМНО-СИНІ ПЛЯМИ НА ФОНІ --- */
 body::before, body::after {
     content: "";
     position: fixed;
     width: 350px;
     height: 350px;
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(24, 63, 114, 0.4) 0%, rgba(5, 7, 10, 0) 70%);
-    filter: blur(80px);
+    background: radial-gradient(circle, rgba(24, 63, 114, 0.4) 0%, rgba(3, 5, 8, 0) 70%);
+    filter: blur(70px);
     z-index: -1;
     pointer-events: none;
 }
 body::before { top: -50px; right: -50px; }
-body::after { bottom: 50px; left: -100px; background: radial-gradient(circle, rgba(13, 37, 77, 0.3) 0%, rgba(5, 7, 10, 0) 70%); }
+body::after { 
+    bottom: 50px; left: -100px; 
+    background: radial-gradient(circle, rgba(13, 37, 77, 0.3) 0%, rgba(3, 5, 8, 0) 70%); 
+}
 
-/* --- ШАПКА ТА НАВІГАЦІЯ (GLASSMorphism) --- */
+/* --- GLASSMorphism (ШАПКА ТА НАВІГАЦІЯ) --- */
 header, nav { 
-    background: rgba(13, 17, 23, 0.8) !important;
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    background: rgba(10, 12, 16, 0.8) !important;
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
     border-color: var(--glass-border) !important;
     z-index: 100;
 }
 
 header { 
-    padding: 15px; 
+    padding: 12px 15px; 
     display: flex; 
     justify-content: space-between; 
     align-items: center; 
@@ -60,16 +63,16 @@ header {
 
 .bal-card { 
     background: rgba(22, 27, 34, 0.6); 
-    padding: 8px 15px; 
-    border-radius: 12px; 
+    padding: 6px 14px; 
+    border-radius: 10px; 
     border: 1px solid var(--accent); 
     font-weight: 900; 
     color: var(--accent);
-    box-shadow: 0 0 15px rgba(88, 166, 255, 0.2);
+    box-shadow: 0 0 10px rgba(88, 166, 255, 0.1);
 }
 
 /* --- КОНТЕЙНЕР ТА КАРТКИ --- */
-.container { flex: 1; overflow-y: auto; padding: 15px; padding-bottom: 90px; }
+.container { flex: 1; overflow-y: auto; padding: 15px; padding-bottom: 80px; }
 
 .glass { 
     background: var(--glass); 
@@ -77,12 +80,64 @@ header {
     padding: 18px; 
     margin-bottom: 15px; 
     border: 1px solid var(--glass-border);
-    backdrop-filter: blur(15px);
-    -webkit-backdrop-filter: blur(15px);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+/* --- КНОПКИ ТА ІНПУТИ --- */
+.btn { 
+    width: 100%; padding: 14px; border: none; border-radius: 12px; 
+    background: var(--accent); color: white; font-weight: bold; font-size: 16px; 
+    cursor: pointer; transition: 0.15s; 
+}
+.btn:active { transform: scale(0.97); opacity: 0.8; }
+
+.btn-s { 
+    padding: 8px 14px; border: none; border-radius: 8px; 
+    background: #30363d; color: white; cursor: pointer; font-size: 13px; font-weight: 700;
+}
+
+input, select { 
+    width: 100%; padding: 12px; margin: 8px 0; background: rgba(0,0,0,0.3); 
+    border: 1px solid var(--glass-border); color: white; border-radius: 10px; font-size: 16px;
+}
+
+/* --- ГРИ --- */
+/* Кубик - Сітка кнопок */
+.dice-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 15px 0; }
+
+/* Виправлене підсвічування обраної цифри в кубику */
+.dice-grid button.btn-s.active {
+    background-color: var(--accent) !important;
+    color: white !important;
+    border: 1px solid white !important;
+    box-shadow: 0 0 12px var(--accent);
+    transform: translateY(-2px);
+}
+
+/* Колесо - Анімація */
+.w-wrap { position: relative; width: 190px; height: 190px; margin: 20px auto; }
+.w-main { 
+    width: 100%; height: 100%; border-radius: 50%; border: 5px solid #30363d; 
+    background: conic-gradient(var(--error) 0% 45%, var(--success) 45% 80%, #3b82f6 80% 95%, var(--warning) 95% 100%);
+    transition: transform 4s cubic-bezier(0.1, 0, 0.1, 1); /* Плавна анімація */
+    will-change: transform;
+}
+.marker { 
+    position: absolute; top: -10px; left: 50%; transform: translateX(-50%); 
+    width: 0; height: 0; border-left: 10px solid transparent; 
+    border-right: 10px solid transparent; border-top: 20px solid #fff; z-index: 10; 
+}
+
+/* Блекджек */
+#bj-pc, #bj-dc { display: flex; justify-content: center; gap: 6px; }
+#bj-pc div, #bj-dc div { 
+    padding: 10px 14px; background: #fff; color: #000; 
+    border-radius: 8px; font-weight: bold; font-size: 18px; 
 }
 
 /* --- МАГАЗИН (ОНОВЛЕНІ КАРТКИ) --- */
-.shop-tabs { display: flex; gap: 10px; margin-bottom: 15px; }
+.shop-tabs { display: flex; gap: 8px; margin-bottom: 15px; }
 .s-tab { 
     flex: 1; padding: 10px; background: rgba(22, 27, 34, 0.5); border: 1px solid var(--glass-border); 
     border-radius: 10px; text-align: center; font-weight: bold; color: #8d99ae; cursor: pointer;
@@ -98,7 +153,6 @@ header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    backdrop-filter: blur(5px);
 }
 
 .case-info { display: flex; flex-direction: column; gap: 4px; }
@@ -112,28 +166,19 @@ header {
     border-radius: 4px;
     font-weight: 900;
     text-transform: uppercase;
-    margin-left: 5px;
 }
-
 .case-timer { font-size: 11px; color: var(--warning); font-weight: 600; margin-top: 2px; }
 
-/* --- КНОПКИ --- */
-.btn { 
-    width: 100%; padding: 14px; border: none; border-radius: 12px; 
-    background: var(--accent); color: white; font-weight: bold; font-size: 16px; 
-    cursor: pointer; transition: 0.2s; 
-}
-.btn:active { transform: scale(0.96); }
-
-.btn-s { 
-    padding: 10px 16px; border: none; border-radius: 10px; 
-    background: #30363d; color: white; cursor: pointer; font-size: 13px; font-weight: 700;
+/* Ринок та Інвентар */
+.market-item { 
+    background: rgba(255,255,255,0.03); padding: 12px; border-radius: 12px; 
+    display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; 
 }
 
-/* --- АНІМАЦІЯ КЕЙСІВ (БЕЗ ЛАГІВ) --- */
+/* --- АНІМАЦІЯ КЕЙСІВ --- */
 #case-modal {
     display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-    background: rgba(5, 7, 10, 0.95); z-index: 1000; align-items: center; 
+    background: rgba(3, 5, 8, 0.96); z-index: 1000; align-items: center; 
     justify-content: center; flex-direction: column; backdrop-filter: blur(10px);
 }
 
@@ -145,27 +190,16 @@ header {
 
 #case-scroll {
     display: flex; position: absolute; left: 0; top: 0; height: 110px;
-    will-change: transform; /* Оптимізація для відеокарти */
+    will-change: transform;
 }
 
-.case-item { 
-    min-width: 90px; max-width: 90px; height: 110px; display: flex; 
-    align-items: center; justify-content: center; font-size: 45px; 
-}
+.case-item { min-width: 90px; max-width: 90px; height: 110px; display: flex; align-items: center; justify-content: center; font-size: 45px; }
 
 /* --- АДМІНКА --- */
 .admin-tabs { display: flex; gap: 8px; margin-bottom: 15px; }
-.a-tab { 
-    flex: 1; padding: 10px; background: rgba(22, 27, 34, 0.6); 
-    border: 1px solid var(--glass-border); border-radius: 8px; text-align: center; font-size: 13px; 
-}
+.a-tab { flex: 1; padding: 10px; background: rgba(22, 27, 34, 0.6); border: 1px solid var(--glass-border); border-radius: 8px; text-align: center; }
 .a-tab.active { background: var(--accent); color: white; }
-
-.admin-card { 
-    background: rgba(28, 33, 40, 0.8); border: 1px solid var(--glass-border); 
-    padding: 15px; border-radius: 15px; margin-bottom: 10px; 
-}
-
+.admin-card { background: rgba(28, 33, 40, 0.8); border: 1px solid var(--glass-border); padding: 15px; border-radius: 15px; margin-bottom: 10px; font-size: 13px; }
 .admin-ctrl-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 10px; }
 .btn-ctrl { padding: 10px; border: none; border-radius: 8px; color: white; font-weight: 800; font-size: 11px; }
 .b-add { background: var(--success); }
@@ -174,22 +208,12 @@ header {
 
 /* --- НАВІГАЦІЯ ВНИЗУ --- */
 nav { 
-    position: fixed; bottom: 0; width: 100%; height: 70px; 
+    position: fixed; bottom: 0; width: 100%; height: 65px; 
     display: flex; border-top: 1px solid var(--glass-border); 
 }
-.nav-tab { flex: 1; text-align: center; padding: 22px; font-size: 24px; opacity: 0.3; transition: 0.3s; }
+.nav-tab { flex: 1; text-align: center; padding: 20px; font-size: 24px; opacity: 0.3; transition: 0.2s; }
 .nav-tab.active { opacity: 1; color: var(--accent); }
 
 /* --- ІНШЕ --- */
-input, select { 
-    width: 100%; padding: 12px; margin: 10px 0; background: rgba(0,0,0,0.3); 
-    border: 1px solid var(--glass-border); color: white; border-radius: 10px; outline: none;
-}
-
-.xp-bar { width: 100%; height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; margin: 10px 0; overflow: hidden; }
-.xp-fill { height: 100%; background: var(--accent); box-shadow: 0 0 10px var(--accent); }
-
-.market-item { 
-    background: rgba(255,255,255,0.03); padding: 12px; border-radius: 12px; 
-    display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; 
-}
+.xp-bar { width: 100%; height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; margin: 8px 0; overflow: hidden; }
+.xp-fill { height: 100%; background: var(--accent); box-shadow: 0 0 8px var(--accent); }
