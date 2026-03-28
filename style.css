@@ -1,34 +1,18 @@
-:root {
-    --bg: #030508; --accent: #58a6ff; --glass: rgba(13, 17, 23, 0.9);
-    --glass-border: rgba(255, 255, 255, 0.08); --text: #c9d1d9;
-    --success: #2ea043; --error: #f85149;
-}
-body { margin:0; background:var(--bg); color:var(--text); font-family:sans-serif; height:100vh; overflow:hidden; display:flex; flex-direction:column; }
+:root { --bg:#030508; --accent:#58a6ff; --glass:rgba(13,17,23,0.8); --text:#c9d1d9; --success:#2ea043; --error:#f85149; }
+body { margin:0; background:var(--bg); color:var(--text); font-family:sans-serif; height:100vh; display:flex; flex-direction:column; overflow:hidden; }
 .container { flex:1; overflow-y:auto; padding:15px 15px 80px 15px; }
-.glass { background:var(--glass); border:1px solid var(--glass-border); border-radius:15px; padding:15px; margin-bottom:10px; }
-
-/* ПЕТ */
-.pet-card-fixed { display:flex; gap:15px; align-items:center; border-left: 4px solid var(--accent); }
-.p-icon { font-size:40px; }
-.p-bar { width:100%; height:6px; background:rgba(255,255,255,0.1); border-radius:3px; margin:5px 0; overflow:hidden; }
-.p-fill { height:100%; background:var(--accent); width:0; transition:0.3s; }
-
-/* МАГАЗИН ТА РИНОК */
-.shop-nav { display:flex; gap:5px; margin-bottom:10px; }
-.s-tab { flex:1; padding:10px; border-radius:10px; border:none; background:#161b22; color:var(--text); font-weight:bold; }
-.s-tab.active { background:var(--accent); color:white; }
-.shop-item { display:flex; justify-content:space-between; align-items:center; }
-
-/* АДМІНКА */
-.admin-row { display:flex; justify-content:space-between; padding:8px 0; border-bottom: 1px solid var(--glass-border); }
-
-/* КНОПКИ ТА ВВОД */
-.game-select, .bet-input { width:100%; padding:12px; border-radius:10px; background:#0d1117; border:1px solid var(--glass-border); color:white; margin-bottom:10px; }
-.play-btn { width:100%; padding:15px; border-radius:12px; background:var(--accent); color:white; font-weight:bold; border:none; }
-.dice-selector { display:grid; grid-template-columns: repeat(3, 1fr); gap:8px; margin-bottom:15px; }
-.d-btn { padding:10px; background:#21262d; border:none; color:white; border-radius:8px; }
+.glass { background:var(--glass); border:1px solid rgba(255,255,255,0.1); border-radius:15px; padding:15px; margin-bottom:10px; }
+.item { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.05); }
+.card-row { display:flex; gap:5px; justify-content:center; margin-bottom:10px; }
+.card { background:white; color:black; padding:10px; border-radius:5px; font-weight:bold; }
+.w-disk { width:150px; height:150px; border-radius:50%; border:4px solid #333; position:relative; overflow:hidden; margin:0 auto; }
+.s { position:absolute; width:50%; height:50%; transform-origin:100% 100%; display:flex; align-items:center; justify-content:center; color:white; font-size:10px; }
+.s1{background:#f44; transform:rotate(0deg)} .s2{background:#4f4; transform:rotate(72deg)} .s3{background:#f90; transform:rotate(144deg)}
+.s4{background:#44f; transform:rotate(216deg)} .s5{background:#999; transform:rotate(288deg)}
+nav { position:fixed; bottom:0; width:100%; height:60px; background:#0d1117; display:flex; border-top:1px solid #333; }
+.n-btn { flex:1; display:flex; align-items:center; justify-content:center; font-size:20px; opacity:0.4; }
+.n-btn.active { opacity:1; color:var(--accent); }
+.btn-main { width:100%; padding:15px; background:var(--accent); border:none; color:white; border-radius:10px; font-weight:bold; }
+.dice-grid { display:grid; grid-template-columns: repeat(3, 1fr); gap:10px; margin-bottom:10px; }
+.d-btn { padding:10px; background:#21262d; border:none; color:white; border-radius:5px; }
 .d-btn.active { background:var(--accent); }
-
-nav { position:fixed; bottom:0; width:100%; height:65px; background:#0d1117; display:flex; border-top:1px solid var(--glass-border); }
-.nav-btn { flex:1; display:flex; align-items:center; justify-content:center; font-size:22px; opacity:0.4; }
-.nav-btn.active { opacity:1; color:var(--accent); }

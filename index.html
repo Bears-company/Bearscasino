@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
-    <title>BEARS CASINO v4</title>
+    <title>BEARS CASINO FIX</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
@@ -12,95 +12,96 @@
 <body>
 
 <header>
-    <div class="brand-zone">
-        <div class="logo">BEARS CASINO</div>
-        <div id="u-status" class="badge">SESSION OK</div>
-    </div>
-    <div class="wallet"><span id="bal-val">0</span> <small>BB</small></div>
+    <div class="brand">BEARS CASINO</div>
+    <div class="bal-card"><span id="bal-val">0</span> BB</div>
 </header>
 
 <div class="container">
-    <div class="glass pet-card-fixed">
-        <div id="p-img" class="p-icon">🥚</div>
-        <div class="p-info">
-            <div class="p-top-line"><span id="p-name">Завантаження...</span> <span id="p-rarity" class="tag">???</span></div>
-            <div class="p-bar"><div id="xp-f" class="p-fill"></div></div>
-            <div class="p-stats">
+    <div class="glass pet-card">
+        <div id="p-img" style="font-size:40px">🥚</div>
+        <div style="flex:1">
+            <div id="p-name" style="font-weight:bold">Завантаження...</div>
+            <div class="xp-bar"><div id="xp-f" class="xp-fill"></div></div>
+            <div style="display:flex; justify-content:space-between; font-size:10px">
+                <span id="p-rarity">COMMON</span>
                 <span>LVL: <b id="p-l">1</b></span>
-                <span>x<b id="p-m">1.0</b></span>
-                <span id="xp-num">0/0</span>
             </div>
         </div>
     </div>
 
     <div id="v-main" class="page">
         <div class="glass">
-            <select id="g-sel" class="game-select" onchange="switchGameUI()">
-                <option value="f50">⚖️ Шанс 50/50</option>
-                <option value="dice">🎲 Кубик</option>
-                <option value="wheel">🎡 Колесо</option>
+            <select id="g-sel" class="game-select" onchange="updUI()">
+                <option value="dice">🎲 Кубик (x2.05)</option>
+                <option value="wheel">🎡 Колесо (x0 - x2)</option>
+                <option value="bj">🃏 Блекджек (x2.0)</option>
             </select>
 
-            <div id="ui-dice" class="g-area" style="display:none">
-                <div class="dice-selector">
-                    <button class="d-btn active" onclick="setDice(1, this)">1</button>
-                    <button class="d-btn" onclick="setDice(2, this)">2</button>
-                    <button class="d-btn" onclick="setDice(3, this)">3</button>
-                    <button class="d-btn" onclick="setDice(4, this)">4</button>
-                    <button class="d-btn" onclick="setDice(5, this)">5</button>
-                    <button class="d-btn" onclick="setDice(6, this)">6</button>
+            <div id="ui-dice" class="g-zone">
+                <div class="dice-grid">
+                    <button class="d-btn active" onclick="selD(1, this)">1</button>
+                    <button class="d-btn" onclick="selD(2, this)">2</button>
+                    <button class="d-btn" onclick="selD(3, this)">3</button>
+                    <button class="d-btn" onclick="selD(4, this)">4</button>
+                    <button class="d-btn" onclick="selD(5, this)">5</button>
+                    <button class="d-btn" onclick="selD(6, this)">6</button>
                 </div>
             </div>
 
-            <div id="ui-wheel" class="g-area" style="display:none">
-                <div class="wheel-box">
-                    <div class="pointer">▼</div>
-                    <div id="w-obj" class="wheel-disk">
-                        <div class="seg s1">x0</div><div class="seg s2">x2</div><div class="seg s3">x0.5</div>
-                        <div class="seg s4">x1.5</div><div class="seg s5">x0</div>
-                    </div>
+            <div id="ui-wheel" class="g-zone" style="display:none">
+                <div class="w-wrap"><div class="ptr">▼</div><div id="w-obj" class="w-disk">
+                    <div class="s s1">x0</div><div class="s s2">x2</div><div class="s s3">x0.5</div><div class="s s4">x1.5</div><div class="s s5">x0</div>
+                </div></div>
+            </div>
+
+            <div id="ui-bj" class="g-zone" style="display:none">
+                <div id="bj-dc" class="card-row"></div>
+                <div id="bj-pc" class="card-row"></div>
+                <div id="bj-ctrl" style="display:none; gap:10px; justify-content:center">
+                    <button class="btn-s" onclick="bjStep('hit')">ЩЕ</button>
+                    <button class="btn-s" onclick="bjStep('stand')" style="background:var(--error)">СТОП</button>
                 </div>
             </div>
 
-            <div class="bet-container">
-                <input type="number" id="bet-a" value="10" class="bet-input">
-                <button class="play-btn" onclick="runGame()">ГРАТИ</button>
-            </div>
-            <div id="g-res" class="res-box"></div>
+            <input type="number" id="bet-a" value="10" class="bet-input">
+            <button class="btn-main" onclick="play()">ГРАТИ</button>
+            <div id="g-res" style="text-align:center; margin-top:10px; font-weight:bold"></div>
         </div>
     </div>
 
     <div id="v-shop" class="page" style="display:none">
-        <div class="shop-nav">
-            <button id="s-cases-btn" class="s-tab active" onclick="openShopPart('cases')">КЕЙСИ</button>
-            <button id="s-market-btn" class="s-tab" onclick="openShopPart('market')">РИНОК</button>
+        <div class="shop-tabs">
+            <button id="ts1" class="s-tab active" onclick="setS('c')">📦 КЕЙСИ</button>
+            <button id="ts2" class="s-tab" onclick="setS('m')">🛒 РИНОК</button>
         </div>
-        
-        <div id="part-cases" class="shop-content">
-            <div class="glass shop-item">
-                <span>📦 Basic Case</span>
-                <button onclick="alert('Купівля...')">250 BB</button>
-            </div>
+        <div id="s-c" class="glass">
+            <div class="item"><span>🥚 Common Egg</span><button onclick="buyEgg('basic')">250 BB</button></div>
         </div>
-
-        <div id="part-market" class="shop-content" style="display:none">
+        <div id="s-m" style="display:none" class="glass">
             <div id="market-list"></div>
         </div>
     </div>
 
+    <div id="v-inv" class="page" style="display:none">
+        <div class="glass">
+            <h3>🎒 ТВОЇ ПЕТИ</h3>
+            <div id="inv-list"></div>
+        </div>
+    </div>
+
     <div id="v-admin" class="page" style="display:none">
-        <div class="glass admin-box">
-            <h3 style="color:var(--accent)">ADMIN DASHBOARD</h3>
-            <div id="admin-users-list"></div>
+        <div class="glass">
+            <h3 style="color:var(--accent)">⚡ ADMIN PANEL</h3>
+            <div id="admin-users"></div>
         </div>
     </div>
 </div>
 
 <nav>
-    <div class="nav-btn active" onclick="tab('main', this)">🎮</div>
-    <div class="nav-btn" onclick="tab('shop', this)">📦</div>
-    <div class="nav-btn" onclick="tab('top', this)">🏆</div>
-    <div id="adm-nav" class="nav-btn adm-icon" style="display:none" onclick="tab('admin', this)">⚡</div>
+    <div class="n-btn active" onclick="tab('main', this)">🎮</div>
+    <div class="n-btn" onclick="tab('shop', this)">📦</div>
+    <div class="n-btn" onclick="tab('inv', this)">🎒</div>
+    <div id="adm-nav" class="n-btn" style="display:none" onclick="tab('admin', this)">⚡</div>
 </nav>
 
 <script src="script.js"></script>
