@@ -1,4 +1,3 @@
-// Firebase Config (Твій старий)
 const firebaseConfig = {
     apiKey: "AIzaSyD7F2lrec5XWyMWG7J0uW6IhEKD-LJ4jRY",
     authDomain: "bearscasino-bcded.firebaseapp.com",
@@ -10,135 +9,111 @@ const db = firebase.database();
 const tg = window.Telegram.WebApp;
 
 const ADMINS = [8216362223, 2067230442];
-const myId = tg.initDataUnsafe?.user?.id || 101;
-const myName = tg.initDataUnsafe?.user?.first_name || "Гравець";
+const myId = Number(tg.initDataUnsafe?.user?.id) || 101;
 
-let s = { b: 0, name: myName, p: null, inv: [] };
-let selectedDice = 1;
+let user = { b: 0, p: null, inv: [] };
+let diceVal = 1;
 
-// Синхронізація з БД
+// БАЗОВА СИНХРОНІЗАЦІЯ
 db.ref('players/' + myId).on('value', snap => {
-    let d = snap.val();
-    if(d) { s = d; if(!s.inv) s.inv = []; } 
-    else { db.ref('players/' + myId).set(s); }
-    updateUI();
+    let data = snap.val();
+    if(data) { user = data; renderProfile(); }
+    if(ADMINS.includes(myId)) document.getElementById('adm-nav').style.display = 'flex';
 });
 
-function updateUI() {
-    document.getElementById('bal-val').innerText = Math.floor(s.b);
-    if(s.p) {
-        document.getElementById('p-img').innerText = s.p.s || '🥚';
-        document.getElementById('p-name').innerText = s.p.n;
-        document.getElementById('p-m').innerText = (s.p.m || 1.0).toFixed(2);
-        document.getElementById('p-l').innerText = s.p.lvl || 1;
-        let nx = Math.floor(1000 * Math.pow(1.2, (s.p.lvl||1)-1));
-        document.getElementById('xp-f').style.width = ((s.p.xp||0)/nx*100) + "%";
-        document.getElementById('xp-num').innerText = `${s.p.xp||0}/${nx}`;
+function renderProfile() {
+    document.getElementById('bal-val').innerText = Math.floor(user.b);
+    if(user.p) {
+        document.getElementById('p-img').innerText = user.p.s || '🥚';
+        document.getElementById('p-name').innerText = user.p.n;
+        document.getElementById('p-m').innerText = (user.p.m || 1).toFixed(2);
+        document.getElementById('p-l').innerText = user.p.lvl || 1;
+        let nx = Math.floor(1000 * Math.pow(1.2, (user.p.lvl||1)-1));
+        document.getElementById('xp-f').style.width = ((user.p.xp||0)/nx*100) + "%";
+        document.getElementById('xp-num').innerText = `${user.p.xp||0}/${nx}`;
         let r = document.getElementById('p-rarity');
-        r.innerText = s.p.r; r.style.background = s.p.c;
+        r.innerText = user.p.r; r.style.background = user.p.c;
     }
-    if(ADMINS.includes(Number(myId))) document.getElementById('adm-btn').style.display = 'flex';
 }
 
-// Навігація вкладок
-window.tab = (t, el) => {
+// НАВІГАЦІЯ
+window.tab = (name, el) => {
     document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
-    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-    document.getElementById('v-'+t).style.display = 'block';
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('v-'+name).style.display = 'block';
     el.classList.add('active');
-    
-    if(t === 'admin') loadAdminData();
-    if(t === 'shop') switchShop('cases');
-    if(t === 'inv') renderInventory();
+    if(name === 'admin') syncAdmin();
 };
 
-// МАГАЗИН (Робочий перемикач)
-window.switchShop = (mode) => {
-    document.getElementById('shop-cases').style.display = (mode === 'cases') ? 'block' : 'none';
-    document.getElementById('shop-market').style.display = (mode === 'market') ? 'block' : 'none';
-    
-    document.getElementById('btn-cases').classList.toggle('active', mode === 'cases');
-    document.getElementById('btn-market').classList.toggle('active', mode === 'market');
-
-    if(mode === 'market') loadMarketData();
-};
-
-function loadMarketData() {
-    db.ref('market').once('value', snap => {
-        let h = "";
-        snap.forEach(l => {
-            let lot = l.val();
-            h += `<div class="glass market-item">
-                <span>${lot.p.s} ${lot.p.n} (x${lot.p.m})</span>
-                <button class="buy-btn" onclick="buyFromMarket('${l.key}', ${lot.price})">${lot.price} BB</button>
-            </div>`;
+// МАГАЗИН & РИНОК
+window.openShopPart = (part) => {
+    document.getElementById('part-cases').style.display = (part === 'cases') ? 'block' : 'none';
+    document.getElementById('part-market').style.display = (part === 'market') ? 'block' : 'none';
+    document.getElementById('s-cases-btn').classList.toggle('active', part === 'cases');
+    document.getElementById('s-market-btn').classList.toggle('active', part === 'market');
+    if(part === 'market') {
+        db.ref('market').once('value', snap => {
+            let h = "";
+            snap.forEach(l => {
+                let lot = l.val();
+                h += `<div class='glass shop-item'><span>${lot.p.s} ${lot.p.n}</span><button>${lot.price} BB</button></div>`;
+            });
+            document.getElementById('market-list').innerHTML = h || "Ринок порожній";
         });
-        document.getElementById('market-list').innerHTML = h || "<p style='text-align:center; opacity:0.5'>Ринку поки немає</p>";
-    });
-}
+    }
+};
 
 // АДМІНКА
-function loadAdminData() {
-    db.ref('players').limitToFirst(15).once('value', snap => {
+function syncAdmin() {
+    db.ref('players').limitToFirst(10).once('value', snap => {
         let h = "";
         snap.forEach(u => {
-            let user = u.val();
-            h += `<div class="admin-user-card">
-                <span>${user.name}</span>
-                <div class="admin-btns">
-                    <button onclick="adminAddBB('${u.key}', 1000)">+1k</button>
-                    <button onclick="adminAddBB('${u.key}', -1000)">-1k</button>
-                    <button onclick="adminSetBB('${u.key}')">SET</button>
-                </div>
+            h += `<div class='admin-row'>
+                <span>${u.val().name || u.key}</span>
+                <button onclick="setB('${u.key}')">EDIT</button>
             </div>`;
         });
-        document.getElementById('admin-users').innerHTML = h;
+        document.getElementById('admin-users-list').innerHTML = h;
     });
 }
-
-window.adminAddBB = (uid, amt) => {
-    db.ref('players/'+uid+'/b').transaction(b => (b || 0) + amt);
-};
-
-window.adminSetBB = (uid) => {
-    let v = prompt("Введіть точну суму:");
-    if(v) db.ref('players/'+uid+'/b').set(Number(v));
+window.setB = (id) => {
+    let v = prompt("Новий баланс:");
+    if(v) db.ref('players/'+id+'/b').set(Number(v));
 };
 
 // ІГРИ
-window.play = () => {
-    let bt = parseFloat(document.getElementById('bet-a').value);
-    if(bt > s.b || bt <= 0) return alert("Недостатньо BB!");
-    if(!s.p) return alert("Візьми пета в інвентарі!");
-
+window.switchGameUI = () => {
     let g = document.getElementById('g-sel').value;
-    if(g==='f50') finalize(Math.random() > 0.5, bt, 1.55);
-    if(g==='dice') finalize(Math.floor(Math.random()*6)+1 === selectedDice, bt, 2.05);
-    if(g==='wheel') handleWheel(bt);
+    document.getElementById('ui-dice').style.display = (g === 'dice') ? 'block' : 'none';
+    document.getElementById('ui-wheel').style.display = (g === 'wheel') ? 'block' : 'none';
 };
 
-function finalize(win, bt, m) {
-    let res = document.getElementById('g-stat');
-    if(win) {
-        let w = (bt * m - bt) * s.p.m;
-        s.b += w;
-        s.p.xp = (s.p.xp || 0) + Math.floor(bt);
-        res.innerHTML = `<span style="color:var(--success)">ВИГРАШ: +${w.toFixed(1)} BB</span>`;
-    } else {
-        s.b -= bt;
-        res.innerHTML = `<span style="color:var(--error)">ПРОГРАШ: -${bt} BB</span>`;
-    }
-    db.ref('players/'+myId).set(s);
-}
-
-window.selN = (n, el) => {
-    selectedDice = n;
+window.setDice = (n, el) => {
+    diceVal = n;
     document.querySelectorAll('.d-btn').forEach(b => b.classList.remove('active'));
     el.classList.add('active');
 };
 
-window.updUI = () => {
-    let g = document.getElementById('g-sel').value;
-    document.getElementById('ui-dice').style.display = (g==='dice') ? 'block' : 'none';
-    document.getElementById('ui-wheel').style.display = (g==='wheel') ? 'block' : 'none';
+window.runGame = () => {
+    let bt = Number(document.getElementById('bet-a').value);
+    if(bt > user.b || bt <= 0) return alert("Немає BB!");
+    if(!user.p) return alert("Обери пета!");
+
+    let mode = document.getElementById('g-sel').value;
+    let win = false; let m = 1;
+
+    if(mode === 'f50') { win = Math.random() > 0.5; m = 1.55; }
+    if(mode === 'dice') { win = (Math.floor(Math.random()*6)+1 === diceVal); m = 2.05; }
+    
+    // ЛОГІКА ВИГРАШУ (ПЕТИ НЕ ТРОНУТІ)
+    if(win) {
+        let prize = (bt * m - bt) * user.p.m;
+        user.b += prize;
+        user.p.xp += Math.floor(bt);
+        document.getElementById('g-res').innerHTML = `<b style="color:var(--success)">+${prize.toFixed(1)} BB</b>`;
+    } else {
+        user.b -= bt;
+        document.getElementById('g-res').innerHTML = `<b style="color:var(--error)">-${bt} BB</b>`;
+    }
+    db.ref('players/'+myId).set(user);
 };
