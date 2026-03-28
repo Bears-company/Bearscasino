@@ -1,16 +1,18 @@
 <!DOCTYPE html>
-<html>
+<html lang="uk">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Bears Pet Hub</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 </head>
 <body>
+
     <header>
-        <div class="user-info">
-            <b id="u-rank">LVL: 1</b>
+        <div>
+            <b id="u-rank">Завантаження...</b>
             <div class="xp-bar"><div id="xp-f" class="xp-fill"></div></div>
         </div>
         <div class="bal-card"><span id="bal-val">0</span> BB</div>
@@ -18,48 +20,71 @@
 
     <div class="container">
         <div id="v-main" class="page">
-            <div class="glass">
-                <span id="p-img" style="font-size:40px">❓</span>
-                <b id="p-name">Немає пета</b> | x<span id="p-m">1.000</span> | Lvl: <span id="p-l">1</span>
-                <div id="p-rarity" style="padding:2px 5px; border-radius:5px; font-size:10px; display:inline-block"></div>
+            <div class="card">
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <div id="p-img" style="font-size: 50px;">❓</div>
+                    <div>
+                        <b id="p-name">Немає пета</b><br>
+                        <small id="p-rarity" style="color: #aaa;">Оберіть в інвентарі</small>
+                    </div>
+                </div>
+                <div style="margin-top: 10px; font-size: 14px;">
+                    Множник: <b id="p-m">1.000</b> | Рівень: <b id="p-l">1</b>
+                </div>
             </div>
-            <div class="glass">
-                <select id="g-sel"><option value="f50">50/50</option><option value="dice">Кубик</option></select>
-                <input type="number" id="bet-a" value="10">
+
+            <div class="card">
+                <select id="g-sel" onchange="updUI()">
+                    <option value="f50">50/50 (x1.55)</option>
+                    <option value="dice">Кубик (x2.05)</option>
+                </select>
+                <div id="ui-dice" style="display:none; margin: 10px 0;">
+                    <div class="dice-grid" id="dice-btns"></div>
+                </div>
+                <input type="number" id="bet-a" value="10" style="width: 100%; padding: 10px; margin: 10px 0;">
                 <button class="btn" onclick="play()">ГРАТИ</button>
-                <div id="g-stat"></div>
+                <p id="g-stat" style="text-align:center; font-weight:bold; height: 20px;"></p>
             </div>
         </div>
 
-        <div id="v-inv" class="page" style="display:none">
-            <h3>Інвентар</h3>
+        <div id="v-inv" class="page" style="display:none;">
+            <h3>Ваші пети</h3>
             <div id="inv-list"></div>
         </div>
 
-        <div id="v-admin" class="page" style="display:none">
-            <div class="admin-tabs">
-                <button onclick="setATab('main')">Головна</button>
-                <button onclick="setATab('stats')">Статистика</button>
-                <button onclick="setATab('users')">Гравці</button>
-            </div>
-            <div id="a-sec-main"><div id="global-stats"></div></div>
-            <div id="a-sec-stats" style="display:none"></div>
-            <div id="a-sec-users" style="display:none">
-                <input type="text" id="user-search" oninput="searchUser()" placeholder="ID...">
-                <div id="user-inspect-res"></div>
-            </div>
+        <div id="v-top" class="page" style="display:none;">
+            <h3>Топ гравців</h3>
+            <div id="top-list"></div>
+        </div>
+
+        <div id="v-admin" class="page" style="display:none;">
+            <h3>Адмін-панель</h3>
+            <button class="btn-s" onclick="setATab('stats')">Статистика</button>
+            <button class="btn-s" onclick="setATab('users')">Гравці</button>
+            <hr>
+            <div id="admin-content"></div>
         </div>
     </div>
 
     <nav>
-        <div class="nav-tab active" onclick="tab('main', this)">🎮</div>
-        <div class="nav-tab" onclick="tab('inv', this)">📦</div>
-        <div id="admin-tab" class="nav-tab" style="display:none" onclick="tab('admin', this)">⚙️</div>
+        <div class="nav-item active" onclick="tab('main', this)">🎮</div>
+        <div class="nav-item" onclick="tab('inv', this)">📦</div>
+        <div class="nav-item" onclick="tab('top', this)">🏆</div>
+        <div id="admin-tab" class="nav-item" style="display:none;" onclick="tab('admin', this)">⚙️</div>
     </nav>
 
     <script>
-        // ВСТАВ СВІЙ CONFIG FIREBASE ТУТ
-        firebase.initializeApp({ /* Твій конфіг */ });
+        // ВСТАВ СВОЇ ДАНІ FIREBASE СЮДИ!
+        const firebaseConfig = {
+            apiKey: "API_KEY",
+            authDomain: "PROJECT.firebaseapp.com",
+            databaseURL: "https://PROJECT.firebaseio.com",
+            projectId: "PROJECT",
+            storageBucket: "PROJECT.appspot.com",
+            messagingSenderId: "ID",
+            appId: "APP_ID"
+        };
+        firebase.initializeApp(firebaseConfig);
     </script>
     <script src="config.js"></script>
     <script src="script.js"></script>
