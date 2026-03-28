@@ -16,7 +16,6 @@ const tg = window.Telegram.WebApp;
 const ADMINS = [8216362223, 2067230442];
 const myId = tg.initDataUnsafe?.user?.id || 101; 
 const myName = tg.initDataUnsafe?.user?.first_name || "Гравець";
-
 const DEADLINE = new Date("2026-04-04T00:00:00+03:00").getTime();
 
 const CASES = {
@@ -42,36 +41,34 @@ const CASES = {
     ]},
     ocean: { n: "Океан 🌊", p: 1500, limited: true, drop: [
         {n:'Рибка', s:'🐟', r:'Незвичайний', m:1.1, w:40, c:'#3b82f6'},
-        {n:'Тропічна рибка', s:'🐠', r:'Рідкісний', m:1.12, w:30, c:'#a855f7'},
         {n:'Акула', s:'🦈', r:'Епічний', m:1.15, w:20, c:'#f59e0b'},
         {n:'Восьминіг', s:'🐙', r:'Легендарний', m:1.19, w:10, c:'#f43f5e'}
     ]}
 };
 
-let s = { b: 0, x: 0, r: 1, name: myName, p: null, inv: [], v: 2.8 };
+let s = { b: 0, x: 0, r: 1, name: myName, p: null, inv: [], v: 3.0 };
+let currentShopTab = 'cases';
 let selN_val = 1;
 
 db.ref('players/' + myId).on('value', snap => {
     let d = snap.val();
-    if(d) {
-        s = d; if(!s.inv) s.inv = [];
-        if(s.v !== 2.8) { s.v = 2.8; save(); }
-    } else { db.ref('players/' + myId).set(s); }
+    if(d) { s = d; if(!s.inv) s.inv = []; } 
+    else { db.ref('players/' + myId).set(s); }
     ren();
 });
 
 function save() { db.ref('players/' + myId).set(s); }
 
 function ren() {
-    let displayBal = Number.isInteger(s.b) ? s.b : s.b.toFixed(2);
-    document.getElementById('bal-val').innerText = displayBal;
+    let disp = Number.isInteger(s.b) ? s.b : s.b.toFixed(2);
+    document.getElementById('bal-val').innerText = disp;
     document.getElementById('u-rank').innerText = "РАНГ: " + s.r;
     document.getElementById('xp-f').style.width = Math.min((s.x/(s.r*1000)*100), 100) + "%";
     if(s.p) {
         document.getElementById('p-img').innerText = s.p.s;
         document.getElementById('p-name').innerText = s.p.n;
         document.getElementById('p-m').innerText = s.p.m.toFixed(2);
-        document.getElementById('p-l').innerText = s.p.lvl;
+        document.getElementById('p-l').innerText = s.p.lvl || 1;
         let t = document.getElementById('p-rarity'); t.innerText = s.p.r; t.style.background = s.p.c;
     }
     if(ADMINS.includes(Number(myId))) document.getElementById('admin-tab').style.display = 'block';
@@ -88,158 +85,192 @@ window.tab = (t, el) => {
     if(t === 'admin') loadAdmin();
 };
 
-function renderShop() {
-    let h = "";
-    const now = Date.now();
-    for(let k in CASES) {
-        const c = CASES[k];
-        if(c.limited && now > DEADLINE) continue; // Видаляємо Океан після дедлайну
-        
-        let timerStr = "";
-        if(c.limited) {
-            let diff = DEADLINE - now;
-            let d = Math.floor(diff / (1000 * 60 * 60 * 24));
-            let h = Math.floor((diff / (1000 * 60 * 60)) % 24);
-            let m = Math.floor((diff / 1000 / 60) % 60);
-            timerStr = `<span class="timer-tag" id="ocean-timer">Залишилось: ${d}д ${h}г ${m}хв</span>`;
-        }
+// --- МАГАЗИН ТА РИНОК ---
+window.setShopTab = (t) => { currentShopTab = t; renderShop(); };
 
-        h += `<div class="shop-item">
-            <div><span>${c.n}</span>${timerStr}</div>
-            <button class="btn-s" onclick="buyCase('${k}')">${c.p} BB</button>
-        </div>`;
+function renderShop() {
+    let list = document.getElementById('shop-list');
+    let tabs = `<div class="shop-tabs">
+        <div class="s-tab ${currentShopTab==='cases'?'active':''}" onclick="setShopTab('cases')">📦 Кейси</div>
+        <div class="s-tab ${currentShopTab==='market'?'active':''}" onclick="setShopTab('market')">🛒 Ринок</div>
+    </div>`;
+
+    if(currentShopTab === 'cases') {
+        let h = tabs; const now = Date.now();
+        for(let k in CASES) {
+            const c = CASES[k];
+            if(c.limited && now > DEADLINE) continue;
+            let timer = c.limited ? `<span class="timer-tag">До 04.04 00:00</span>` : "";
+            h += `<div class="shop-item"><div><span>${c.n}</span>${timer}</div><button class="btn-s" onclick="buyCase('${k}')">${c.p} BB</button></div>`;
+        }
+        list.innerHTML = h;
+    } else {
+        list.innerHTML = tabs + '<div id="m-list">Завантаження...</div>';
+        db.ref('market').on('value', snap => {
+            let h = "";
+            snap.forEach(child => {
+                let lot = child.val();
+                if(lot.sellerId == myId) return;
+                h += `<div class="market-item"><div><span style="color:${lot.pet.c}">${lot.pet.s} ${lot.pet.n}</span><br><small>Від: ${lot.sellerName}</small></div>
+                <button class="btn-s" style="background:var(--success)" onclick="buyFromMarket('${child.key}')">${lot.price} BB</button></div>`;
+            });
+            document.getElementById('m-list').innerHTML = h || "Ринок порожній";
+        });
     }
-    document.getElementById('shop-list').innerHTML = h;
 }
 
-window.buyCase = (k) => {
-    if(CASES[k].limited && Date.now() > DEADLINE) return alert("Цей кейс більше недоступний!");
-    let c = CASES[k]; if(s.b < c.p) return alert("Мало BB!");
-    s.b -= c.p; save();
-    document.getElementById('case-modal').style.display = 'flex';
-    document.getElementById('case-close').style.display = 'none';
-    document.getElementById('case-res').innerText = "Крутимо...";
-    let rand = Math.random() * 100; let win = null; let cur = 0;
-    for(let p of c.drop) { cur += p.w; if(rand <= cur) { win = {...p}; break; } }
-    let scroll = document.getElementById('case-scroll');
-    let pool = []; for(let key in CASES) pool.push(...CASES[key].drop);
-    let h = ""; const WIN_INDEX = 40; 
-    for(let i=0; i<55; i++) { 
-        let item = (i === WIN_INDEX) ? win : pool[Math.floor(Math.random()*pool.length)];
-        h += `<div class="case-item">${item.s}</div>`; 
-    }
-    scroll.innerHTML = h; scroll.style.transition = "0s"; scroll.style.left = "0px";
-    setTimeout(() => {
-        const itemWidth = 90;
-        const finalPos = (WIN_INDEX * itemWidth) - (document.querySelector('.case-roulette').offsetWidth / 2 - 45);
-        scroll.style.transition = "5s cubic-bezier(0.1, 0, 0.1, 1)";
-        scroll.style.left = `-${finalPos}px`;
-    }, 50);
-    setTimeout(() => {
-        document.getElementById('case-res').innerHTML = `<span style="color:${win.c}">${win.n}</span>`;
-        document.getElementById('case-close').style.display = 'block';
-        win.id = Date.now(); win.lvl = 1; s.inv.push(win); save();
-    }, 5600);
+window.buyFromMarket = (lotId) => {
+    db.ref('market/' + lotId).once('value', snap => {
+        let lot = snap.val();
+        if(!lot || s.b < lot.price) return alert("Помилка купівлі!");
+        s.b -= lot.price; s.inv.push(lot.pet); save();
+        db.ref('players/' + lot.sellerId + '/b').transaction(c => (c || 0) + lot.price);
+        db.ref('market/' + lotId).remove();
+        alert("Куплено!");
+    });
 };
-window.closeCase = () => document.getElementById('case-modal').style.display = 'none';
 
+window.listOnMarket = (petId) => {
+    if(s.p && s.p.id === petId) return alert("Зніми пета!");
+    let price = prompt("Ціна продажу (BB):");
+    if(!price || isNaN(price) || price <= 0) return;
+    let idx = s.inv.findIndex(p => p.id === petId);
+    let pet = s.inv[idx];
+    db.ref('market').push({ pet, price: Number(price), sellerId: myId, sellerName: myName }).then(() => {
+        s.inv.splice(idx, 1); save(); renderInv();
+    });
+};
+
+// --- ІНВЕНТАР ---
 function renderInv() {
-    let list = document.getElementById('inv-list');
-    if(!s.inv || s.inv.length === 0) return list.innerHTML = "Порожньо";
     let h = "";
     s.inv.forEach(p => {
         let isEq = s.p && s.p.id === p.id;
-        h += `<div class="shop-item"><span>${p.s} ${p.n}</span><button class="btn-s" onclick="equip(${p.id})">${isEq?'ВЗЯТО':'ВЗЯТИ'}</button></div>`;
+        h += `<div class="shop-item"><span>${p.s} ${p.n}</span>
+        <div style="display:flex; gap:5px">
+            <button class="btn-s" onclick="equip(${p.id})">${isEq?'✅':'ВЗЯТИ'}</button>
+            <button class="btn-s" style="background:var(--purple)" onclick="listOnMarket(${p.id})">🛒</button>
+        </div></div>`;
     });
-    list.innerHTML = h;
+    document.getElementById('inv-list').innerHTML = h || "Порожньо";
 }
 window.equip = (id) => { s.p = s.inv.find(i => i.id === id); save(); renderInv(); };
 
-function loadTop() {
-    db.ref('players').once('value', snap => {
-        let l = []; snap.forEach(c => { if(c.val().name) l.push(c.val()); });
-        l.sort((a,b) => b.b - a.b);
-        let h = ""; l.slice(0,10).forEach((p, i) => h += `<div style="display:flex; justify-content:space-between; margin-bottom:10px"><span>${i+1}. ${p.name}</span><b>${Math.floor(p.b)}</b></div>`);
-        document.getElementById('leaderboard').innerHTML = h;
-    });
-}
-
-function loadAdmin() {
-    db.ref('players').limitToLast(30).on('value', snap => {
-        let h = ""; snap.forEach(c => {
-            h += `<div class="shop-item"><span>${c.val().name || c.key}</span><button class="btn-s" onclick="setB('${c.key}')">SET</button></div>`;
-        });
-        document.getElementById('admin-list').innerHTML = h;
-    });
-}
-window.setB = (id) => { let v = prompt("Баланс:"); if(v !== null) db.ref('players/'+id+'/b').set(Number(v)); };
-
+// --- ГРИ ---
 window.updUI = () => {
     let g = document.getElementById('g-sel').value;
     document.getElementById('ui-dice').style.display = (g==='dice')?'block':'none';
     document.getElementById('ui-wheel').style.display = (g==='wheel')?'block':'none';
     document.getElementById('ui-bj').style.display = (g==='bj')?'block':'none';
-    if(g === 'dice') {
-        let h = ""; for(let i=1; i<=6; i++) h += `<button class="n-btn ${i===selN_val?'active':''}" onclick="selN(${i}, this)">${i}</button>`;
-        document.querySelector('.dice-grid').innerHTML = h;
+    if(g==='dice'){
+        let h=""; for(let i=1;i<=6;i++) h+=`<button class="btn-s ${i===selN_val?'active':''}" style="padding:15px" onclick="selN(${i})">${i}</button>`;
+        document.querySelector('.dice-grid').innerHTML=h;
     }
 };
-window.selN = (n, el) => { selN_val = n; document.querySelectorAll('.n-btn').forEach(b => b.classList.remove('active')); el.classList.add('active'); };
+window.selN=(n)=>{ selN_val=n; updUI(); };
 
 window.play = () => {
     let bt = parseFloat(document.getElementById('bet-a').value);
     if(bt > s.b || bt <= 0 || isNaN(bt)) return alert("Мало BB!");
     let g = document.getElementById('g-sel').value;
-    document.getElementById('g-stat').innerHTML = "⏳ Очікуємо...";
-    
-    if(g==='f50') { let w=Math.random()>0.5; res(w, bt, 1.45, w?"Орел!":"Решка"); }
-    else if(g==='dice') { let r=Math.floor(Math.random()*6)+1; res(r===selN_val, bt, 1.45, `Випало 🎲 ${r}`); }
-    else if(g==='wheel') {
-        let wheel = document.getElementById('w-obj'); 
-        wheel.style.transition = "none"; wheel.style.transform = "rotate(0deg)";
-        let p = Math.random() * 100;
-        let m, txt, sectorDeg;
-        if(p < 45) { m = 0; txt = "Червоний (0x)"; sectorDeg = Math.random() * 162; }
-        else if(p < 80) { m = 1.25; txt = "Зелений (1.25x)"; sectorDeg = 162 + Math.random() * 126; }
-        else if(p < 95) { m = 1.5; txt = "Синій (1.5x)"; sectorDeg = 288 + Math.random() * 54; }
-        else { m = 1.75; txt = "Золотий (1.75x)"; sectorDeg = 342 + Math.random() * 18; }
+    document.getElementById('g-stat').innerText = "⏳ Очікуємо...";
 
-        setTimeout(() => {
-            wheel.style.transition = "transform 4s cubic-bezier(0.1, 0, 0.1, 1)";
-            let finalDeg = 1800 + (360 - sectorDeg);
-            wheel.style.transform = `rotate(${finalDeg}deg)`;
-            setTimeout(() => { res(m > 0, bt, m, txt); }, 4100);
+    if(g==='f50'){ let w=Math.random()>0.5; res(w, bt, 1.45, w?"Орел":"Решка"); }
+    else if(g==='dice'){ let r=Math.floor(Math.random()*6)+1; res(r===selN_val, bt, 1.45, `Випало ${r}`); }
+    else if(g==='wheel'){
+        let wheel = document.getElementById('w-obj'); wheel.style.transition="none"; wheel.style.transform="rotate(0deg)";
+        let p = Math.random()*100; let m, deg;
+        if(p<45){ m=0; deg=Math.random()*162; }
+        else if(p<80){ m=1.25; deg=162+Math.random()*126; }
+        else if(p<95){ m=1.5; deg=288+Math.random()*54; }
+        else { m=1.75; deg=342+Math.random()*18; }
+        setTimeout(()=>{
+            wheel.style.transition="transform 4s cubic-bezier(0.1, 0, 0.1, 1)";
+            wheel.style.transform=`rotate(${1800+(360-deg)}deg)`;
+            setTimeout(()=>res(m>0, bt, m, `Множник x${m}`), 4100);
         }, 50);
     }
     else if(g==='bj') startBJ(bt);
 };
 
 function res(win, bt, m, msg) {
-    let st = document.getElementById('g-stat');
+    let bon = s.p ? s.p.m : 1;
     if(win) {
-        let bon = s.p ? s.p.m : 1; 
         let winAmount = (bt * m - bt) * bon;
-        s.b += winAmount; s.x += Math.floor(bt/4); 
-        st.innerHTML = `<span style="color:var(--success)">+${winAmount.toFixed(2)} BB</span><br><small>${msg}</small>`;
+        s.b += winAmount; s.x += Math.floor(bt/2);
+        document.getElementById('g-stat').innerHTML = `<span style="color:var(--success)">+${winAmount.toFixed(2)} BB</span><br><small>${msg}</small>`;
     } else {
-        s.b -= bt; 
-        st.innerHTML = `<span style="color:var(--error)">-${bt.toFixed(2)} BB</span><br><small>${msg}</small>`;
+        s.b -= bt;
+        document.getElementById('g-stat').innerHTML = `<span style="color:var(--error)">-${bt.toFixed(2)} BB</span><br><small>${msg}</small>`;
     }
     save();
 }
 
-let bj = null;
+// --- КЕЙСИ ---
+window.buyCase = (k) => {
+    let c = CASES[k]; if(s.b < c.p) return alert("Мало BB!");
+    s.b -= c.p; save();
+    document.getElementById('case-modal').style.display='flex';
+    let rand = Math.random()*100; let win, cur=0;
+    for(let p of c.drop){ cur+=p.w; if(rand<=cur){ win={...p}; break; } }
+    let scroll = document.getElementById('case-scroll');
+    let pool = []; for(let key in CASES) pool.push(...CASES[key].drop);
+    let h = ""; for(let i=0; i<55; i++){
+        let item = (i===40)?win:pool[Math.floor(Math.random()*pool.length)];
+        h += `<div class="case-item">${item.s}</div>`;
+    }
+    scroll.innerHTML=h; scroll.style.transition="0s"; scroll.style.left="0px";
+    setTimeout(()=>{
+        scroll.style.transition="5s cubic-bezier(0.1, 0, 0.1, 1)";
+        scroll.style.left = `-${40*90 - (window.innerWidth/2 - 45)}px`;
+    }, 50);
+    setTimeout(()=>{
+        document.getElementById('case-res').innerHTML=`Випав: <span style="color:${win.c}">${win.n}</span>`;
+        document.getElementById('case-close').style.display='block';
+        win.id=Date.now(); win.lvl=1; s.inv.push(win); save();
+    }, 5600);
+};
+window.closeCase=()=>{ document.getElementById('case-modal').style.display='none'; document.getElementById('case-close').style.display='none'; };
+
+// --- АДМІНКА ТА ТОП ---
+function loadTop(){
+    db.ref('players').once('value', snap => {
+        let l=[]; snap.forEach(c=>{ if(c.val().name) l.push(c.val()); });
+        l.sort((a,b)=>b.b-a.b);
+        document.getElementById('leaderboard').innerHTML = l.slice(0,10).map((p,i)=>`<div class="market-item"><span>${i+1}. ${p.name}</span><b>${Math.floor(p.b)} BB</b></div>`).join('');
+    });
+}
+function loadAdmin(){
+    db.ref('players').limitToLast(20).once('value', snap => {
+        let h=""; snap.forEach(c=>{
+            let p=c.val(); h+=`<div class="admin-card"><b>${p.name}</b><br>Баланс: ${p.b.toFixed(2)}<br>
+            <button class="btn-s" onclick="setB('${c.key}')">BB</button> <button class="btn-s" onclick="adminGivePet('${c.key}')">PET</button></div>`;
+        });
+        document.getElementById('admin-list').innerHTML=h;
+    });
+}
+window.setB=(id)=>{ let v=prompt("BB:"); if(v) db.ref('players/'+id+'/b').set(Number(v)); };
+window.adminGivePet=(tid)=>{
+    let all=[]; for(let k in CASES) all.push(...CASES[k].drop);
+    let choice=prompt(all.map((p,i)=>i+":"+p.n).join("\n"));
+    if(choice && all[choice]){
+        let p={...all[choice], id:Date.now(), lvl:1};
+        db.ref('players/'+tid+'/inv').once('value', sn=>{ let inv=sn.val()||[]; inv.push(p); db.ref('players/'+tid+'/inv').set(inv); });
+    }
+};
+
+// Блекджек (спрощено)
+let bj=null;
 function startBJ(bt){ bj={p:[dr(),dr()], d:[dr()], bt}; document.getElementById('bj-ctrl').style.display='flex'; reBJ(); }
 function dr(){ return Math.floor(Math.random()*10)+2; }
 function reBJ(){
-    document.getElementById('bj-pc').innerHTML=bj.p.map(c=>`<div style="padding:5px 10px; background:#fff; color:#000; border-radius:4px; font-weight:bold">${c}</div>`).join('');
-    document.getElementById('bj-dc').innerHTML=bj.d.map(c=>`<div style="padding:5px 10px; background:#fff; color:#000; border-radius:4px; font-weight:bold">${c}</div>`).join('');
-    if(bj.p.reduce((a,b)=>a+b,0)>21){ res(false,bj.bt,0,"Перебір!"); endBJ(); }
+    document.getElementById('bj-pc').innerHTML=bj.p.map(c=>`<div style="padding:5px; background:#fff; color:#00; border-radius:4px">${c}</div>`).join('');
+    document.getElementById('bj-dc').innerHTML=bj.d.map(c=>`<div style="padding:5px; background:#fff; color:#00; border-radius:4px">${c}</div>`).join('');
+    if(bj.p.reduce((a,b)=>a+b,0)>21){ res(false,bj.bt,0,"Перебір"); endBJ(); }
 }
 window.bjDo=(a)=>{
-    const sum=(x)=>x.reduce((v,z)=>v+z,0);
     if(a==='hit'){ bj.p.push(dr()); reBJ(); }
-    else { while(sum(bj.d)<17) bj.d.push(dr()); reBJ(); let win=sum(bj.d)>21||sum(bj.p)>sum(bj.d); res(win,bj.bt,2, win?"Виграш!":"Програш"); endBJ(); }
+    else { while(bj.d.reduce((a,b)=>a+b,0)<17) bj.d.push(dr()); reBJ(); let win=bj.d.reduce((a,b)=>a+b,0)>21||bj.p.reduce((a,b)=>a+b,0)>bj.d.reduce((a,b)=>a+b,0); res(win,bj.bt,2, win?"Перемога":"Поразка"); endBJ(); }
 };
 function endBJ(){ document.getElementById('bj-ctrl').style.display='none'; }
 

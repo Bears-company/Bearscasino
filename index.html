@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
     <title>BEARS CASINO</title>
-    <link rel="stylesheet" href="style.css?v=2.8">
+    <link rel="stylesheet" href="style.css?v=3.0">
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -20,14 +20,14 @@
 </header>
 
 <div class="container">
-    <div class="glass" style="display:flex; align-items:center; gap:15px; border-left: 5px solid var(--accent)">
-        <div id="p-img" style="font-size:45px">🥚</div>
+    <div class="glass" style="display:flex; align-items:center; gap:15px; border-left: 4px solid var(--accent)">
+        <div id="p-img" style="font-size:40px">🥚</div>
         <div style="flex:1">
-            <div id="p-rarity" style="font-size:10px; padding:2px 8px; border-radius:5px; display:inline-block; background:#333; font-weight:bold">НЕМАЄ</div>
-            <div id="p-name" style="font-weight:bold; margin-top:4px">Обери пета</div>
+            <div id="p-rarity" style="font-size:9px; padding:2px 6px; border-radius:4px; display:inline-block; background:#333; font-weight:bold">НЕМАЄ</div>
+            <div id="p-name" style="font-weight:bold; margin-top:2px; font-size:14px">Обери пета</div>
             <div class="xp-bar"><div id="xp-f" class="xp-fill" style="width:0%"></div></div>
-            <div style="display:flex; justify-content:space-between; font-size:12px">
-                <span style="color:var(--accent)">x<span id="p-m">1.0</span></span>
+            <div style="display:flex; justify-content:space-between; font-size:11px">
+                <span style="color:var(--accent)">Бонус: x<span id="p-m">1.0</span></span>
                 <span>Lvl: <span id="p-l">1</span></span>
             </div>
         </div>
@@ -42,15 +42,12 @@
                 <option value="bj">🃏 Блекджек (x2.0)</option>
             </select>
             
-            <div id="ui-dice" style="display:none;"><div class="dice-grid"></div></div>
+            <div id="ui-dice" style="display:none;"><div class="dice-grid" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:8px; margin:10px 0;"></div></div>
             
             <div id="ui-wheel" style="display:none; text-align:center">
                 <div class="w-wrap"><div class="marker"></div><div id="w-obj" class="w-main"></div></div>
-                <div class="w-legend">
-                    <div class="leg-i"><div class="dot" style="background:var(--error)"></div> 0x</div>
-                    <div class="leg-i"><div class="dot" style="background:var(--success)"></div> 1.25x</div>
-                    <div class="leg-i"><div class="dot" style="background:#3b82f6"></div> 1.5x</div>
-                    <div class="leg-i"><div class="dot" style="background:var(--warning)"></div> 1.75x</div>
+                <div style="display:flex; justify-content:center; gap:10px; font-size:10px; opacity:0.8">
+                    <span>🔴 0x</span> <span>🟢 1.25x</span> <span>🔵 1.5x</span> <span>🟡 1.75x</span>
                 </div>
             </div>
 
@@ -63,23 +60,28 @@
                 </div>
             </div>
 
-            <input type="number" id="bet-a" value="1" step="0.1">
+            <input type="number" id="bet-a" value="1" step="0.1" inputmode="decimal">
             <button class="btn" onclick="play()">ГРАТИ</button>
-            <div id="g-stat" style="text-align:center; margin-top:15px; font-weight:bold; min-height:45px"></div>
+            <div id="g-stat" style="text-align:center; margin-top:12px; font-weight:bold; min-height:40px"></div>
         </div>
     </div>
 
-    <div id="v-shop" class="page" style="display:none"><div class="glass"><h3>📦 МАГАЗИН</h3><div id="shop-list"></div></div></div>
+    <div id="v-shop" class="page" style="display:none">
+        <div class="glass">
+            <div id="shop-list"></div>
+        </div>
+    </div>
+
     <div id="v-inv" class="page" style="display:none"><div class="glass"><h3>🎒 ІНВЕНТАР</h3><div id="inv-list"></div></div></div>
-    <div id="v-top" class="page" style="display:none"><div class="glass"><h3>🏆 ТОП</h3><div id="leaderboard"></div></div></div>
-    <div id="v-admin" class="page" style="display:none"><div class="glass"><h3>⚡ АДМІНКА</h3><div id="admin-list"></div></div></div>
+    <div id="v-top" class="page" style="display:none"><div class="glass"><h3>🏆 ТОП ГРАВЦІВ</h3><div id="leaderboard"></div></div></div>
+    <div id="v-admin" class="page" style="display:none"><div class="glass"><h3>⚡ АДМІН-ПАНЕЛЬ</h3><div id="admin-list"></div></div></div>
 </div>
 
-<div id="case-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); z-index:1000; align-items:center; justify-content:center; flex-direction:column; padding:20px; box-sizing:border-box">
+<div id="case-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:1000; align-items:center; justify-content:center; flex-direction:column; padding:20px;">
     <h2 id="case-title" style="color:var(--accent)">ВІДКРИТТЯ...</h2>
     <div class="case-roulette"><div id="case-scroll"></div></div>
-    <div id="case-res" style="margin-top:25px; font-size:20px; font-weight:bold"></div>
-    <button class="btn" style="width:200px; display:none" id="case-close" onclick="closeCase()">ЗАБРАТИ</button>
+    <div id="case-res" style="margin-top:20px; font-size:18px; font-weight:bold"></div>
+    <button class="btn" style="width:180px; display:none" id="case-close" onclick="closeCase()">ЗАБРАТИ</button>
 </div>
 
 <nav>
@@ -90,6 +92,6 @@
     <div id="admin-tab" class="nav-tab" style="display:none" onclick="tab('admin', this)">⚡</div>
 </nav>
 
-<script src="script.js?v=2.8"></script>
+<script src="script.js?v=3.0"></script>
 </body>
 </html>
