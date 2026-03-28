@@ -1,338 +1,276 @@
-// --- КОНФІГУРАЦІЯ FIREBASE ---
-const firebaseConfig = {
-    apiKey: "AIzaSyD7F2lrec5XWyMWG7J0uW6IhEKD-LJ4jRY",
-    authDomain: "bearscasino-bcded.firebaseapp.com",
-    projectId: "bearscasino-bcded",
-    storageBucket: "bearscasino-bcded.firebasestorage.app",
-    messagingSenderId: "826765969101",
-    appId: "1:826765969101:web:ee5e5da5057582f8ba4b84",
-    measurementId: "G-J2BCGS7NVM",
-    databaseURL: "https://bearscasino-bcded-default-rtdb.europe-west1.firebasedatabase.app"
-};
-
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
+// --- ІНІЦІАЛІЗАЦІЯ ТА КОНФІГУРАЦІЯ ---
 const tg = window.Telegram.WebApp;
+const db = firebase.database();
 
-// --- НАЛАШТУВАННЯ ТА ДАНІ ---
-const ADMINS = [8216362223, 2067230442];
 const myId = tg.initDataUnsafe?.user?.id || 101; 
 const myName = tg.initDataUnsafe?.user?.first_name || "Гравець";
-const DEADLINE = new Date("2026-04-04T00:00:00+03:00").getTime();
 
-const CASES = {
-    basic: { n: "Common Case 🐾", p: 300, drop: [
-        {n:'Собака', s:'🐶', r:'Звичайний', m:1.05, w:40, c:'#94a3b8'},
-        {n:'Кіт', s:'🐱', r:'Звичайний', m:1.05, w:40, c:'#94a3b8'},
-        {n:'Кролик', s:'🐰', r:'Незвичайний', m:1.07, w:20, c:'#3b82f6'}
-    ]},
-    uncommon: { n: "Rare Case 🌟", p: 550, drop: [
-        {n:'Кролик', s:'🐰', r:'Незвичайний', m:1.07, w:43, c:'#3b82f6'},
-        {n:'Лисиця', s:'🦊', r:'Незвичайний', m:1.07, w:43, c:'#3b82f6'},
-        {n:'Вовк', s:'🐺', r:'Рідкісний', m:1.09, w:14, c:'#a855f7'}
-    ]},
-    rare: { n: "Epic Case 💎", p: 850, drop: [
-        {n:'Вовк', s:'🐺', r:'Рідкісний', m:1.09, w:45, c:'#a855f7'},
-        {n:'Бджола', s:'🐝', r:'Рідкісний', m:1.09, w:45, c:'#a855f7'},
-        {n:'Панда', s:'🐼', r:'Епічний', m:1.12, w:10, c:'#f59e0b'}
-    ]},
-    legend: { n: "Legendary Case 👑", p: 1250, drop: [
-        {n:'Панда', s:'🐼', r:'Епічний', m:1.12, w:56, c:'#f59e0b'},
-        {n:'Лев', s:'🦁', r:'Легендарний', m:1.14, w:20, c:'#f43f5e'},
-        {n:'Дракон', s:'🐲', r:'Легендарний', m:1.16, w:24, c:'#f43f5e'}
-    ]},
-    ocean: { n: "Ocean Case 🌊", p: 1500, limited: true, drop: [
-        {n:'Рибка', s:'🐟', r:'Незвичайний', m:1.1, w:60, c:'#3b82f6'},
-        {n:'Акула', s:'🦈', r:'Епічний', m:1.15, w:30, c:'#f59e0b'},
-        {n:'Восьминіг', s:'🐙', r:'Легендарний', m:1.19, w:10, c:'#f43f5e'}
-    ]}
+// Початковий стан для НОВОГО гравця
+let s = { 
+    b: 25,            // Початковий баланс тепер 25
+    inv: [],          
+    p: null,          
+    name: myName, 
+    v: 4.2            
 };
 
-let s = { b: 0, x: 0, r: 1, name: myName, p: null, inv: [], v: 3.1 };
-let currentShopTab = 'cases';
-let currentAdminTab = 'balance';
-let selN_val = 1;
+let selN_val = 1; 
 
-// --- БАЗОВА ЛОГІКА ---
+// --- ЗАВАНТАЖЕННЯ ТА ЗБЕРЕЖЕННЯ ---
 db.ref('players/' + myId).on('value', snap => {
     let d = snap.val();
-    if(d) { s = d; if(!s.inv) s.inv = []; } 
-    else { db.ref('players/' + myId).set(s); }
+    if(d) { 
+        s = d; 
+        if(!s.inv) s.inv = []; 
+    } else { 
+        db.ref('players/' + myId).set(s); 
+    }
     ren();
 });
-function save() { db.ref('players/' + myId).set(s); }
 
+function save() { 
+    db.ref('players/' + myId).update(s); 
+}
+
+// --- СИСТЕМА ПРОКАЧУВАННЯ ПЕТА (XP & LVL) ---
+function addPetXP(amount) {
+    if (!s.p) return; 
+
+    let idx = s.inv.findIndex(i => i.id === s.p.id);
+    if(idx === -1) return;
+
+    let pet = s.inv[idx];
+    pet.xp = (pet.xp || 0) + amount;
+    
+    // ФОРМУЛА: Базово 500 XP, кожен наступний рівень на 20% важче
+    let lvl = pet.lvl || 1;
+    let need = Math.floor(500 * Math.pow(1.2, lvl - 1));
+
+    if (pet.xp >= need) {
+        pet.xp -= need;
+        pet.lvl = lvl + 1;
+        pet.m += 0.005; // Бонус +0.005 до множника за рівень
+        tg.HapticFeedback.notificationOccurred('success');
+        alert(`🆙 LEVEL UP! ${pet.s} тепер ${pet.lvl} рівня!\nМножник став: x${pet.m.toFixed(3)}`);
+    }
+    
+    s.p = pet; 
+    save();
+}
+
+// --- РЕНДЕР ІНТЕРФЕЙСУ ---
 function ren() {
     let disp = Number.isInteger(s.b) ? s.b : s.b.toFixed(2);
     document.getElementById('bal-val').innerText = disp;
-    document.getElementById('u-rank').innerText = "РАНГ: " + s.r;
-    document.getElementById('xp-f').style.width = Math.min((s.x/(s.r*1000)*100), 100) + "%";
     
     if(s.p) {
         document.getElementById('p-img').innerText = s.p.s;
         document.getElementById('p-name').innerText = s.p.n;
-        document.getElementById('p-m').innerText = s.p.m.toFixed(2);
+        document.getElementById('p-m').innerText = s.p.m.toFixed(3);
         document.getElementById('p-l').innerText = s.p.lvl || 1;
+        
+        // Розрахунок XP для прогрес-бару
+        let lvl = s.p.lvl || 1;
+        let need = Math.floor(500 * Math.pow(1.2, lvl - 1));
+        let progress = ((s.p.xp || 0) / need) * 100;
+        document.getElementById('xp-f').style.width = Math.min(progress, 100) + "%";
+        
+        document.getElementById('u-rank').innerText = "PET LVL: " + lvl;
         let t = document.getElementById('p-rarity'); 
         t.innerText = s.p.r; t.style.background = s.p.c;
-    }
-    if(ADMINS.includes(Number(myId))) document.getElementById('admin-tab').style.display = 'block';
-}
-
-window.tab = (t, el) => {
-    document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
-    document.querySelectorAll('.nav-tab').forEach(n => n.classList.remove('active'));
-    document.getElementById('v-'+t).style.display = 'block';
-    el.classList.add('active');
-    if(t === 'shop') renderShop();
-    if(t === 'inv') renderInv();
-    if(t === 'top') loadTop();
-    if(t === 'admin') loadAdmin();
-};
-
-// --- МАГАЗИН ТА РИНОК ---
-window.setShopTab = (t) => { currentShopTab = t; renderShop(); };
-
-function renderShop() {
-    let list = document.getElementById('shop-list');
-    let tabs = `<div class="shop-tabs">
-        <div class="s-tab ${currentShopTab==='cases'?'active':''}" onclick="setShopTab('cases')">📦 Кейси</div>
-        <div class="s-tab ${currentShopTab==='market'?'active':''}" onclick="setShopTab('market')">🛒 Ринок</div>
-    </div>`;
-
-    if(currentShopTab === 'cases') {
-        let h = tabs; const now = Date.now();
-        for(let k in CASES) {
-            const c = CASES[k];
-            if(c.limited && now > DEADLINE) continue;
-            
-            let badge = c.limited ? `<span class="badge-ltd">Лімітовано</span>` : "";
-            let chancesHtml = c.drop.map(p => `<span style="color:${p.c}">${p.s} ${p.w}%</span>`).join(' • ');
-
-            let timerHtml = "";
-            if(c.limited) {
-                let diff = DEADLINE - now;
-                let d = Math.floor(diff / (1000 * 60 * 60 * 24));
-                let hr = Math.floor((diff / (1000 * 60 * 60)) % 24);
-                timerHtml = `<div class="case-timer">⏳ Залишилось: ${d}д ${hr}г</div>`;
-            }
-
-            h += `
-            <div class="shop-card">
-                <div class="case-info">
-                    <div class="case-name">${c.n} ${badge}</div>
-                    <div style="font-size:10px; margin:4px 0; opacity:0.8; font-weight:bold">${chancesHtml}</div>
-                    ${timerHtml}
-                </div>
-                <button class="btn-s" style="background:var(--accent); min-width:85px" onclick="buyCase('${k}')">${c.p} BB</button>
-            </div>`;
-        }
-        list.innerHTML = h;
     } else {
-        list.innerHTML = tabs + '<div id="m-list" class="glass">Завантаження ринку...</div>';
-        db.ref('market').on('value', snap => {
-            let h = "";
-            snap.forEach(child => {
-                let lot = child.val();
-                if(lot.sellerId == myId) return;
-                h += `<div class="market-item">
-                    <div><span style="color:${lot.pet.c}">${lot.pet.s} ${lot.pet.n}</span><br><small>Від: ${lot.sellerName}</small></div>
-                    <button class="btn-s" style="background:var(--success)" onclick="buyFromMarket('${child.key}')">${lot.price} BB</button>
-                </div>`;
-            });
-            document.getElementById('m-list').innerHTML = h || "На ринку порожньо";
-        });
+        document.getElementById('u-rank').innerText = "ОБЕРІТЬ ПЕТА";
+        document.getElementById('xp-f').style.width = "0%";
+    }
+
+    // Показ вкладки адміна тільки для списку ADMINS з config.js
+    if(typeof ADMINS !== 'undefined' && ADMINS.includes(Number(myId))) {
+        document.getElementById('admin-tab').style.display = 'block';
     }
 }
 
-window.buyFromMarket = (lotId) => {
-    db.ref('market/' + lotId).once('value', snap => {
-        let lot = snap.val();
-        if(!lot || s.b < lot.price) return alert("Помилка купівлі!");
-        s.b -= lot.price; s.inv.push(lot.pet); save();
-        db.ref('players/' + lot.sellerId + '/b').transaction(c => (c || 0) + lot.price);
-        db.ref('market/' + lotId).remove();
-        alert("Куплено!");
-    });
-};
-
-window.listOnMarket = (petId) => {
-    if(s.p && s.p.id === petId) return alert("Зніми пета!");
-    let pr = prompt("Ціна продажу (BB):");
-    if(!pr || isNaN(pr) || pr <= 0) return;
-    let idx = s.inv.findIndex(p => p.id === petId);
-    let pet = s.inv[idx];
-    db.ref('market').push({ pet, price: Number(pr), sellerId: myId, sellerName: myName }).then(() => {
-        s.inv.splice(idx, 1); save(); renderInv();
-    });
-};
-
-// --- ІНВЕНТАР ---
-function renderInv() {
-    let h = "";
-    s.inv.forEach(p => {
-        let isEq = s.p && s.p.id === p.id;
-        h += `<div class="market-item">
-            <div><span style="color:${p.c}">${p.s} ${p.n}</span><br><small>Бонус: x${p.m.toFixed(2)}</small></div>
-            <div style="display:flex; gap:5px">
-                <button class="btn-s" onclick="equip(${p.id})">${isEq?'✅':'ВЗЯТИ'}</button>
-                <button class="btn-s" style="background:var(--purple)" onclick="listOnMarket(${p.id})">🏪</button>
-            </div>
-        </div>`;
-    });
-    document.getElementById('inv-list').innerHTML = h || "Інвентар порожній";
-}
-window.equip = (id) => { s.p = s.inv.find(i => i.id === id); save(); renderInv(); };
-
-// --- ГЕЙМПЛЕЙ ---
+// --- ГЕЙМПЛЕЙ (МНОЖНИКИ З CONFIG.JS) ---
 window.updUI = () => {
     let g = document.getElementById('g-sel').value;
     document.getElementById('ui-dice').style.display = (g==='dice')?'block':'none';
     document.getElementById('ui-wheel').style.display = (g==='wheel')?'block':'none';
     document.getElementById('ui-bj').style.display = (g==='bj')?'block':'none';
+    
     if(g==='dice'){
-        let h=""; for(let i=1;i<=6;i++) h+=`<button class="btn-s ${i===selN_val?'active':''}" style="padding:15px; margin:2px" onclick="selN(${i})">${i}</button>`;
-        document.querySelector('.dice-grid').innerHTML=h;
+        let h=""; 
+        for(let i=1; i<=6; i++) {
+            let activeClass = (i === selN_val) ? 'active' : '';
+            h += `<button class="btn-s ${activeClass}" onclick="selN(${i})">${i}</button>`;
+        }
+        document.querySelector('.dice-grid').innerHTML = h;
     }
 };
-window.selN=(n)=>{ selN_val=n; updUI(); };
+
+window.selN = (n) => { selN_val = n; updUI(); };
 
 window.play = () => {
     let bt = parseFloat(document.getElementById('bet-a').value);
     if(bt > s.b || bt <= 0 || isNaN(bt)) return alert("Мало BB!");
     let g = document.getElementById('g-sel').value;
-    document.getElementById('g-stat').innerText = "⏳ Очікування...";
+    document.getElementById('g-stat').innerText = "⏳ Граємо...";
 
-    if(g==='f50'){ let w=Math.random()>0.5; res(w, bt, 1.45, w?"Виграв!":"Програв"); }
-    else if(g==='dice'){ let r=Math.floor(Math.random()*6)+1; res(r===selN_val, bt, 1.45, `Випало ${r}`); }
-    else if(g==='wheel'){
-        let wh = document.getElementById('w-obj'); wh.style.transition="none"; wh.style.transform="rotate(0deg)";
-        let p = Math.random()*100; let m, deg;
-        if(p<45){ m=0; deg=Math.random()*162; }
-        else if(p<80){ m=1.25; deg=162+Math.random()*126; }
-        else if(p<95){ m=1.5; deg=288+Math.random()*54; }
-        else { m=1.75; deg=342+Math.random()*18; }
-        setTimeout(()=>{
-            wh.style.transition="transform 4s cubic-bezier(0.1, 0, 0.1, 1)";
-            wh.style.transform=`rotate(${1800+(360-deg)}deg)`;
-            setTimeout(()=>res(m>0, bt, m, `Множник x${m}`), 4100);
+    if(g === 'f50'){ 
+        let w = Math.random() > 0.5; 
+        res(w, bt, GAME_CONFIG.f50, w ? "Перемога!" : "Програш"); 
+    }
+    else if(g === 'dice'){ 
+        let r = Math.floor(Math.random() * 6) + 1; 
+        res(r === selN_val, bt, GAME_CONFIG.dice, `Випало ${r}`); 
+    }
+    else if(g === 'wheel'){
+        let wh = document.getElementById('w-obj'); wh.style.transition = "none"; wh.style.transform = "rotate(0deg)";
+        let p = Math.random() * 100; 
+        let m, deg, cur = 0;
+        
+        for(let opt of GAME_CONFIG.wheel) {
+            cur += opt.w;
+            if(p <= cur) { m = opt.m; break; }
+        }
+        // Мапінг кутів для колеса
+        deg = m === 0 ? 90 : (m === 1.4 ? 240 : 330);
+
+        setTimeout(() => {
+            wh.style.transition = "transform 4s cubic-bezier(0.1, 0, 0.1, 1)";
+            wh.style.transform = `rotate(${1800 + (360 - deg)}deg)`;
+            setTimeout(() => res(m > 0, bt, m, `Множник x${m}`), 4100);
         }, 50);
     }
-    else if(g==='bj') startBJ(bt);
 };
 
 function res(win, bt, m, msg) {
     let bon = s.p ? s.p.m : 1;
     if(win) {
-        let winAmount = (bt * m - bt) * bon;
-        s.b += winAmount; s.x += Math.floor(bt/2);
+        // Формула: Прибуток * бонус пета + ставка
+        let winAmount = (bt * m - bt) * bon; 
+        s.b += winAmount; 
+        addPetXP(Math.floor(bt * 0.1)); // 10% XP від ставки
         document.getElementById('g-stat').innerHTML = `<span style="color:var(--success)">+${winAmount.toFixed(2)} BB</span><br><small>${msg}</small>`;
     } else {
         s.b -= bt;
+        addPetXP(Math.floor(bt * 0.02)); // 2% XP при програші
         document.getElementById('g-stat').innerHTML = `<span style="color:var(--error)">-${bt.toFixed(2)} BB</span><br><small>${msg}</small>`;
     }
     save();
 }
 
-// --- КЕЙСИ ---
+// --- КЕЙСИ ТА ІНВЕНТАР ---
 window.buyCase = (k) => {
-    let c = CASES[k]; if(s.b < c.p) return alert("Мало BB!");
+    let c = CASES[k]; 
+    if(s.b < c.p) return alert("Мало BB!");
     s.b -= c.p; save();
-    document.getElementById('case-modal').style.display='flex';
-    let rand = Math.random()*100; let win, cur=0;
-    for(let p of c.drop){ cur+=p.w; if(rand<=cur){ win={...p}; break; } }
-    let scr = document.getElementById('case-scroll');
+
+    const modal = document.getElementById('case-modal');
+    const scr = document.getElementById('case-scroll');
+    const closeBtn = document.getElementById('case-close');
+    modal.style.display = 'flex';
+    closeBtn.style.display = 'none';
+    document.getElementById('case-res').innerText = "";
+    
+    let rand = Math.random() * 100; 
+    let win, cur = 0;
+    for(let p of c.drop) { cur += p.w; if(rand <= cur) { win = {...p}; break; } }
+
     let pool = []; for(let key in CASES) pool.push(...CASES[key].drop);
-    let h = ""; for(let i=0; i<55; i++){
-        let it = (i===40)?win:pool[Math.floor(Math.random()*pool.length)];
+    let h = ""; for(let i = 0; i < 60; i++) {
+        let it = (i === 45) ? win : pool[Math.floor(Math.random() * pool.length)];
         h += `<div class="case-item">${it.s}</div>`;
     }
-    scr.innerHTML=h; scr.style.transition="0s"; scr.style.left="0px";
-    setTimeout(()=>{
-        scr.style.transition="5s cubic-bezier(0.1, 0, 0.1, 1)";
-        scr.style.left = `-${40*90 - (window.innerWidth/2 - 45)}px`;
+    scr.style.transition = "none"; scr.style.transform = "translateX(0px)"; scr.innerHTML = h;
+
+    setTimeout(() => {
+        scr.style.transition = "transform 5s cubic-bezier(0.15, 0, 0.15, 1)";
+        let centerOffset = (window.innerWidth / 2) - 45;
+        scr.style.transform = `translateX(-${(45 * 90) - centerOffset}px)`;
     }, 50);
-    setTimeout(()=>{
-        document.getElementById('case-res').innerHTML=`<span style="color:${win.c}">${win.n}</span>`;
-        document.getElementById('case-close').style.display='block';
-        win.id=Date.now(); win.lvl=1; s.inv.push(win); save();
-    }, 5600);
+
+    setTimeout(() => {
+        document.getElementById('case-res').innerHTML = `Випав: <span style="color:${win.c}">${win.n}</span>`;
+        closeBtn.style.display = 'block';
+        win.id = Date.now(); win.lvl = 1; win.xp = 0; s.inv.push(win); save();
+    }, 5500);
 };
-window.closeCase=()=>{ document.getElementById('case-modal').style.display='none'; document.getElementById('case-close').style.display='none'; document.getElementById('case-res').innerText=''; };
 
-// --- АДМІНКА (ТАБИ + ФУНКЦІЇ) ---
-window.setAdminTab = (t) => { currentAdminTab = t; loadAdmin(); };
+window.renderInv = () => {
+    let h = s.inv.map(p => `
+        <div class="glass market-item">
+            <div>${p.s} <b>${p.n}</b> (Lvl ${p.lvl || 1})<br><small>Множник: x${p.m.toFixed(3)}</small></div>
+            <button class="btn-s" onclick="equip(${p.id})">${s.p?.id === p.id ? '✅' : 'Взяти'}</button>
+        </div>
+    `).join('');
+    document.getElementById('inv-list').innerHTML = h || "Інвентар порожній";
+};
 
-function loadAdmin() {
+window.equip = (id) => { 
+    s.p = s.inv.find(i => i.id === id); 
+    save(); 
+    renderInv(); 
+};
+
+// --- АДМІН-ПАНЕЛЬ ---
+window.setATab = (tab) => {
+    document.querySelectorAll('.a-tab').forEach(t => t.classList.remove('active'));
+    if(event) event.target.classList.add('active');
+    document.getElementById('a-sec-main').style.display = tab==='main'?'block':'none';
+    document.getElementById('a-sec-stats').style.display = tab==='stats'?'block':'none';
+    document.getElementById('a-sec-users').style.display = tab==='users'?'block':'none';
+    if(tab === 'stats') renderGlobalStats();
+};
+
+function renderGlobalStats() {
     db.ref('players').once('value', snap => {
-        let tabs = `<div class="admin-tabs">
-            <div class="a-tab ${currentAdminTab==='balance'?'active':''}" onclick="setAdminTab('balance')">💰 Баланс</div>
-            <div class="a-tab ${currentAdminTab==='pets'?'active':''}" onclick="setAdminTab('pets')">🐾 Пети</div>
-        </div>`;
-        let h = tabs;
-        snap.forEach(c => {
-            let p = c.val(); let uid = c.key;
-            h += `<div class="admin-card">
-                <b>${p.name || 'Анонім'}</b><br>Баланс: ${p.b.toFixed(2)} BB`;
-            if(currentAdminTab === 'balance') {
-                h += `<div class="admin-ctrl-grid">
-                    <button class="btn-ctrl b-add" onclick="mathB('${uid}', 'add')">+ Додати</button>
-                    <button class="btn-ctrl b-sub" onclick="mathB('${uid}', 'sub')">- Мінус</button>
-                    <button class="btn-ctrl b-set" onclick="mathB('${uid}', 'set')">Задати</button>
-                </div>`;
-            } else {
-                h += `<button class="btn" style="padding:8px; font-size:12px; margin-top:10px; background:var(--purple)" onclick="adminGivePet('${uid}')">🎁 Подарувати пета</button>`;
-            }
-            h += `</div>`;
+        let totalBB = 0, petCounts = {}, topPet = {lvl: 0};
+        snap.forEach(child => {
+            let p = child.val();
+            totalBB += p.b || 0;
+            if(p.inv) p.inv.forEach(pet => {
+                petCounts[pet.n] = (petCounts[pet.n] || 0) + 1;
+                if((pet.lvl || 1) > topPet.lvl) topPet = {lvl: pet.lvl, name: p.name, petName: pet.n};
+            });
         });
-        document.getElementById('admin-list').innerHTML = h;
+        let h = `<h4>Глобальна статистика:</h4><div class="admin-card">💰 BB в обігу: ${totalBB.toFixed(0)}</div>`;
+        h += `<div class="admin-card">🏆 Топ пет: ${topPet.petName || '—'} (${topPet.lvl} lvl) у ${topPet.name || '—'}</div>`;
+        for(let n in petCounts) h += `<div class="inspect-item"><span>${n}</span><span>${petCounts[n]} шт.</span></div>`;
+        document.getElementById('global-stats').innerHTML = h;
     });
 }
 
-window.mathB = (id, type) => {
-    let v = prompt("Сума:"); if(!v || isNaN(v)) return;
-    v = Number(v); let ref = db.ref('players/'+id+'/b');
-    if(type==='add') ref.transaction(c=>(c||0)+v);
-    else if(type==='sub') ref.transaction(c=>(c||0)-v);
-    else ref.set(v);
-    loadAdmin();
-};
-
-window.adminGivePet = (tid) => {
-    let unique = []; let seen = new Set();
-    for(let k in CASES) CASES[k].drop.forEach(p => { if(!seen.has(p.n)){ unique.push(p); seen.add(p.n); } });
-    let list = unique.map((p,i)=>`${i}: ${p.s} ${p.n}`).join("\n");
-    let ch = prompt(list);
-    if(ch !== null && unique[ch]){
-        let p = {...unique[ch], id:Date.now(), lvl:1};
-        db.ref('players/'+tid+'/inv').once('value', sn=>{ let inv=sn.val()||[]; inv.push(p); db.ref('players/'+tid+'/inv').set(inv); });
-        alert("Видано!");
-    }
-};
-
-// --- ТОП ТА ІГРИ ---
-function loadTop(){
-    db.ref('players').once('value', snap => {
-        let l=[]; snap.forEach(c=>{ let val=c.val(); if(val.name) l.push(val); });
-        l.sort((a,b)=>b.b-a.b);
-        document.getElementById('leaderboard').innerHTML = l.slice(0,10).map((p,i)=>`
-            <div class="market-item"><span>${i+1}. ${p.name}</span><b>${Math.floor(p.b)} BB</b></div>
-        `).join('');
+window.searchUser = () => {
+    let id = document.getElementById('user-search').value;
+    if(id.length < 5) return;
+    db.ref('players/' + id).once('value', snap => {
+        let u = snap.val();
+        if(!u) return document.getElementById('user-inspect-res').innerText = "Не знайдено";
+        let invH = (u.inv || []).map(p => `
+            <div class="inspect-item">
+                <span>${p.s} ${p.n} (Lvl ${p.lvl})</span>
+                <button class="btn-delete" onclick="removePlayerPet('${id}', ${p.id})">Видалити</button>
+            </div>`).join('');
+        document.getElementById('user-inspect-res').innerHTML = `<div class="admin-card"><b>${u.name}</b><br>Баланс: ${u.b.toFixed(2)}<hr>${invH}</div>`;
     });
-}
-
-let bj=null;
-function startBJ(bt){ bj={p:[dr(),dr()], d:[dr()], bt}; document.getElementById('bj-ctrl').style.display='flex'; reBJ(); }
-function dr(){ return Math.floor(Math.random()*10)+2; }
-function reBJ(){
-    document.getElementById('bj-pc').innerHTML=bj.p.map(c=>`<div style="padding:10px; background:#fff; color:#000; border-radius:8px; font-weight:bold">${c}</div>`).join('');
-    document.getElementById('bj-dc').innerHTML=bj.d.map(c=>`<div style="padding:10px; background:#fff; color:#000; border-radius:8px; font-weight:bold">${c}</div>`).join('');
-    if(bj.p.reduce((a,b)=>a+b,0)>21){ res(false,bj.bt,0,"Перебір!"); endBJ(); }
-}
-window.bjDo=(a)=>{
-    if(a==='hit'){ bj.p.push(dr()); reBJ(); }
-    else { while(bj.d.reduce((a,b)=>a+b,0)<17) bj.d.push(dr()); reBJ(); let ps=bj.p.reduce((a,b)=>a+b,0), ds=bj.d.reduce((a,b)=>a+b,0); let w=ds>21||ps>ds; res(w,bj.bt,2, w?"Виграш!":"Програш"); endBJ(); }
 };
-function endBJ(){ document.getElementById('bj-ctrl').style.display='none'; }
 
+window.removePlayerPet = (uid, pid) => {
+    if(!confirm("Видалити пета у гравця?")) return;
+    db.ref('players/' + uid + '/inv').once('value', snap => {
+        let inv = snap.val() || [];
+        let newInv = inv.filter(p => p.id !== pid);
+        db.ref('players/' + uid + '/inv').set(newInv).then(() => searchUser());
+    });
+};
+
+// --- НАВІГАЦІЯ ---
+window.tab = (t, el) => {
+    document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
+    document.querySelectorAll('.nav-tab').forEach(n => n.classList.remove('active'));
+    document.getElementById('v-'+t).style.display = 'block';
+    if(el) el.classList.add('active');
+    if(t === 'inv') renderInv();
+};
+
+// Ініціалізація
 updUI();
