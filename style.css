@@ -1,255 +1,76 @@
-/* --- ОСНОВНІ НАЛАШТУВАННЯ --- */
 :root {
-    --bg: #0f172a;
-    --glass: rgba(255, 255, 255, 0.07);
-    --glass-border: rgba(255, 255, 255, 0.1);
-    --accent: #3b82f6;
-    --success: #10b981;
-    --error: #f43f5e;
-    --warning: #f59e0b;
-    --text: #f8fafc;
+    --bg: #1a1a2e;
+    --card: #16213e;
+    --accent: #e94560;
+    --text: #ffffff;
+    --success: #4ecca3;
+    --error: #ff4b2b;
 }
-
-* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
 body {
     margin: 0;
-    padding: 0;
-    font-family: 'Segoe UI', Roboto, sans-serif;
     background: var(--bg);
     color: var(--text);
-    overflow-x: hidden;
+    font-family: 'Arial', sans-serif;
 }
 
-.container { padding: 80px 15px 100px; }
-
-/* --- ВЕРХНЯ ПАНЕЛЬ (БАЛАНС ТА ПЕТ) --- */
 header {
-    position: fixed;
-    top: 0;
-    width: 100%;
-    height: 70px;
-    background: rgba(15, 23, 42, 0.8);
-    backdrop-filter: blur(10px);
+    background: #0f3460;
+    padding: 15px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0 20px;
-    z-index: 100;
-    border-bottom: 1px solid var(--glass-border);
+    border-bottom: 3px solid var(--accent);
 }
 
-.user-info { display: flex; flex-direction: column; gap: 5px; }
-
 .xp-bar {
-    width: 120px;
-    height: 6px;
-    background: rgba(255,255,255,0.1);
-    border-radius: 10px;
-    overflow: hidden;
+    width: 100px;
+    height: 10px;
+    background: #000;
+    border: 1px solid #fff;
+    margin-top: 5px;
 }
 
 .xp-fill {
     height: 100%;
-    background: linear-gradient(90deg, #3b82f6, #60a5fa);
+    background: var(--success);
     width: 0%;
-    transition: width 0.4s ease;
 }
 
-.bal-card {
-    background: var(--glass);
-    padding: 8px 15px;
-    border-radius: 12px;
-    border: 1px solid var(--glass-border);
-    font-weight: bold;
-}
+.container { padding: 20px 15px 80px; }
 
-/* --- СКЛЯНІ КАРТКИ --- */
-.glass {
-    background: var(--glass);
-    backdrop-filter: blur(5px);
-    border: 1px solid var(--glass-border);
-    border-radius: 16px;
-    padding: 20px;
+.glass { /* Стара назва, але тепер це чітка картка */
+    background: var(--card);
+    border: 2px solid #0f3460;
+    border-radius: 8px;
+    padding: 15px;
     margin-bottom: 15px;
 }
 
-/* --- КНОПКИ ТА ІНПУТИ --- */
 .btn {
-    width: 100%;
-    padding: 14px;
-    border: none;
-    border-radius: 12px;
     background: var(--accent);
     color: white;
-    font-weight: bold;
-    font-size: 16px;
-    cursor: pointer;
-    transition: transform 0.1s;
-}
-
-.btn:active { transform: scale(0.97); }
-
-.btn-s {
-    padding: 8px 15px;
     border: none;
-    border-radius: 8px;
-    background: var(--glass);
-    color: white;
-    cursor: pointer;
-}
-
-.btn-s.active { background: var(--accent); box-shadow: 0 0 10px var(--accent); }
-
-input, select {
-    width: 100%;
-    padding: 12px;
-    margin: 10px 0;
-    background: var(--glass);
-    border: 1px solid var(--glass-border);
-    border-radius: 10px;
-    color: white;
-    outline: none;
-}
-
-/* --- РЕЖИМИ ГРИ --- */
-.dice-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
-    margin: 15px 0;
-}
-
-.w-wrap {
-    position: relative;
-    width: 200px;
-    height: 200px;
-    margin: 20px auto;
-}
-
-.w-main {
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-    border: 5px solid var(--glass-border);
-    background: conic-gradient(
-        var(--error) 0% 55%,      /* x0 */
-        var(--accent) 55% 80%,   /* x1.4 */
-        var(--warning) 80% 95%,  /* x1.6 */
-        #ff00ff 95% 100%         /* x1.8 */
-    );
-}
-
-.marker {
-    position: absolute;
-    top: -10px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 0; height: 0;
-    border-left: 10px solid transparent;
-    border-right: 10px solid transparent;
-    border-top: 20px solid white;
-    z-index: 2;
-}
-
-/* --- КЕЙСИ ТА РУЛЕТКА --- */
-.shop-card {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: var(--glass);
     padding: 15px;
-    border-radius: 12px;
-    margin-bottom: 10px;
-}
-
-#case-modal {
-    position: fixed;
-    top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(15, 23, 42, 0.95);
-    display: none;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-}
-
-.case-roulette {
     width: 100%;
-    height: 100px;
-    overflow: hidden;
-    position: relative;
-    border-top: 2px solid var(--glass-border);
-    border-bottom: 2px solid var(--glass-border);
-    margin: 30px 0;
-}
-
-.case-roulette::after {
-    content: '';
-    position: absolute;
-    left: 50%;
-    top: 0;
-    width: 2px;
-    height: 100%;
-    background: var(--accent);
-    box-shadow: 0 0 15px var(--accent);
-}
-
-#case-scroll {
-    display: flex;
-    align-items: center;
-    position: absolute;
-    left: 0;
-    height: 100%;
-}
-
-.case-item {
-    min-width: 90px;
-    height: 90px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 40px;
-}
-
-/* --- ІНВЕНТАР --- */
-.market-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 10px;
-}
-
-.badge-ltd {
-    padding: 2px 6px;
-    font-size: 10px;
-    border-radius: 4px;
+    border-radius: 5px;
     font-weight: bold;
+    font-size: 18px;
+    text-transform: uppercase;
 }
 
-/* --- АДМІНКА --- */
-.admin-tabs { display: flex; gap: 5px; margin-bottom: 15px; }
-.a-tab { flex: 1; text-align: center; padding: 10px; background: var(--glass); border-radius: 8px; font-size: 12px; }
-.a-tab.active { background: var(--accent); }
+.btn:active { background: #c62842; }
 
-.admin-card { background: rgba(255,255,255,0.05); padding: 15px; border-radius: 12px; margin-bottom: 10px; font-size: 14px; }
-.inspect-item { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); padding: 8px 0; }
-.btn-delete { background: var(--error); color: white; border: none; padding: 4px 8px; border-radius: 5px; font-size: 11px; }
-
-/* --- НАВІГАЦІЯ --- */
 nav {
     position: fixed;
     bottom: 0;
     width: 100%;
-    height: 70px;
-    background: rgba(15, 23, 42, 0.9);
-    backdrop-filter: blur(10px);
+    background: #0f3460;
     display: flex;
     justify-content: space-around;
-    align-items: center;
-    border-top: 1px solid var(--glass-border);
-    padding-bottom: 15px;
+    padding: 15px 0;
+    border-top: 2px solid var(--accent);
 }
 
-.nav-tab { font-size: 24px; opacity: 0.5; transition: 0.3s; padding: 10px; }
-.nav-tab.active { opacity: 1; transform: translateY(-5px); text-shadow: 0 0 10px white; }
+.nav-tab { font-size: 24px; cursor: pointer; }
+.nav-tab.active { color: var(--accent); transform: scale(1.2); }

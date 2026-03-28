@@ -1,164 +1,65 @@
 <!DOCTYPE html>
-<html lang="uk">
+<html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Bears Company Mini App</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="style.css">
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
-
     <header>
         <div class="user-info">
-            <b id="u-rank">Завантаження...</b>
+            <b id="u-rank">LVL: 1</b>
             <div class="xp-bar"><div id="xp-f" class="xp-fill"></div></div>
         </div>
         <div class="bal-card"><span id="bal-val">0</span> BB</div>
     </header>
 
     <div class="container">
-        
         <div id="v-main" class="page">
             <div class="glass">
-                <div style="display: flex; align-items: center; gap: 15px;">
-                    <div id="p-img" style="font-size: 50px;">❓</div>
-                    <div>
-                        <b id="p-name">Немає пета</b><br>
-                        <small id="p-rarity" class="badge-ltd" style="background:#555">НЕМАЄ</small>
-                    </div>
-                </div>
-                <div style="margin-top: 10px; font-size: 13px; color: #8d99ae;">
-                    Множник: <b id="p-m">1.000</b> | Рівень: <b id="p-l">1</b>
-                </div>
+                <span id="p-img" style="font-size:40px">❓</span>
+                <b id="p-name">Немає пета</b> | x<span id="p-m">1.000</span> | Lvl: <span id="p-l">1</span>
+                <div id="p-rarity" style="padding:2px 5px; border-radius:5px; font-size:10px; display:inline-block"></div>
             </div>
-
             <div class="glass">
-                <label>Оберіть режим:</label>
-                <select id="g-sel" onchange="updUI()">
-                    <option value="f50">Режим 50/50 (x1.55)</option>
-                    <option value="dice">Кубик (x2.05)</option>
-                    <option value="wheel">Колесо Фортуни</option>
-                </select>
-
-                <div id="ui-dice" style="display:none;">
-                    <p style="text-align:center; margin: 5px 0;">Оберіть число:</p>
-                    <div class="dice-grid"></div>
-                </div>
-
-                <div id="ui-wheel" style="display:none;">
-                    <div class="w-wrap">
-                        <div class="marker"></div>
-                        <div id="w-obj" class="w-main"></div>
-                    </div>
-                </div>
-
-                <input type="number" id="bet-a" placeholder="Ставка BB..." value="10">
+                <select id="g-sel"><option value="f50">50/50</option><option value="dice">Кубик</option></select>
+                <input type="number" id="bet-a" value="10">
                 <button class="btn" onclick="play()">ГРАТИ</button>
-                <p id="g-stat" style="text-align:center; margin-top:10px; font-weight:bold;"></p>
+                <div id="g-stat"></div>
             </div>
         </div>
 
-        <div id="v-shop" class="page" style="display:none;">
-            <h3>Магазин Кейсів</h3>
-            <div class="shop-card" onclick="buyCase('basic')">
-                <div class="case-info">
-                    <span class="case-name">Common Case 🐾</span>
-                    <span style="font-size:12px; color:var(--accent)">Ціна: 285 BB</span>
-                </div>
-                <button class="btn-s">КУПИТИ</button>
-            </div>
-            <div class="shop-card" onclick="buyCase('uncommon')">
-                <div class="case-info">
-                    <span class="case-name">Rare Case 🌟</span>
-                    <span style="font-size:12px; color:var(--accent)">Ціна: 525 BB</span>
-                </div>
-                <button class="btn-s">КУПИТИ</button>
-            </div>
-            <div class="shop-card" onclick="buyCase('rare')">
-                <div class="case-info">
-                    <span class="case-name">Epic Case 💎</span>
-                    <span style="font-size:12px; color:var(--accent)">Ціна: 875 BB</span>
-                </div>
-                <button class="btn-s">КУПИТИ</button>
-            </div>
-            <div class="shop-card" onclick="buyCase('legend')">
-                <div class="case-info">
-                    <span class="case-name">Legendary Case 👑</span>
-                    <span style="font-size:12px; color:var(--accent)">Ціна: 1200 BB</span>
-                </div>
-                <button class="btn-s">КУПИТИ</button>
-            </div>
-            <div class="shop-card" onclick="buyCase('ocean')" style="border: 1px solid var(--warning);">
-                <div class="case-info">
-                    <span class="case-name">Ocean Case 🌊 <span class="badge-ltd">LTD</span></span>
-                    <span style="font-size:12px; color:var(--warning)">Ціна: 1500 BB</span>
-                </div>
-                <button class="btn-s" style="background:var(--warning)">КУПИТИ</button>
-            </div>
-        </div>
-
-        <div id="v-inv" class="page" style="display:none;">
-            <h3>Твої пети</h3>
+        <div id="v-inv" class="page" style="display:none">
+            <h3>Інвентар</h3>
             <div id="inv-list"></div>
         </div>
 
-        <div id="v-admin" class="page" style="display:none;">
+        <div id="v-admin" class="page" style="display:none">
             <div class="admin-tabs">
-                <div class="a-tab active" onclick="setATab('main')">Керування</div>
-                <div class="a-tab" onclick="setATab('stats')">Статистика</div>
-                <div class="a-tab" onclick="setATab('users')">Гравці</div>
+                <button onclick="setATab('main')">Головна</button>
+                <button onclick="setATab('stats')">Статистика</button>
+                <button onclick="setATab('users')">Гравці</button>
             </div>
-
-            <div id="a-sec-main">
-                <div class="admin-card">
-                    <p>Тут ти можеш швидко змінити свій баланс для тестів:</p>
-                    <input type="number" id="adm-set-b" placeholder="Сума...">
-                    <button class="btn-s" onclick="s.b = parseFloat(document.getElementById('adm-set-b').value); save(); ren();">Встановити баланс</button>
-                </div>
-            </div>
-
-            <div id="a-sec-stats" style="display:none;">
-                <div id="global-stats" class="glass">Завантаження...</div>
-            </div>
-
-            <div id="a-sec-users" style="display:none;">
-                <input type="text" id="user-search" placeholder="Введіть Telegram ID..." oninput="searchUser()">
-                <div id="user-inspect-res" style="margin-top:15px;"></div>
+            <div id="a-sec-main"><div id="global-stats"></div></div>
+            <div id="a-sec-stats" style="display:none"></div>
+            <div id="a-sec-users" style="display:none">
+                <input type="text" id="user-search" oninput="searchUser()" placeholder="ID...">
+                <div id="user-inspect-res"></div>
             </div>
         </div>
-
-    </div>
-
-    <div id="case-modal">
-        <h2 id="case-res">Відкриваємо...</h2>
-        <div class="case-roulette">
-            <div id="case-scroll"></div>
-        </div>
-        <button id="case-close" class="btn" style="display:none; width:200px;" onclick="document.getElementById('case-modal').style.display='none'">ЗАКРИТИ</button>
     </div>
 
     <nav>
         <div class="nav-tab active" onclick="tab('main', this)">🎮</div>
-        <div class="nav-tab" onclick="tab('shop', this)">🛒</div>
         <div class="nav-tab" onclick="tab('inv', this)">📦</div>
-        <div id="admin-tab" class="nav-tab" style="display:none;" onclick="tab('admin', this)">⚙️</div>
+        <div id="admin-tab" class="nav-tab" style="display:none" onclick="tab('admin', this)">⚙️</div>
     </nav>
 
     <script>
-        // ТУТ МАЄ БУТИ КОНФІГ ФАЙРБЕЙСУ
-        const firebaseConfig = {
-            apiKey: "ТВІЙ_КЛЮЧ",
-            authDomain: "ТВІЙ_ПРОЕКТ.firebaseapp.com",
-            databaseURL: "https://ТВІЙ_ПРОЕКТ.firebaseio.com",
-            projectId: "ТВІЙ_ПРОЕКТ",
-            storageBucket: "ТВІЙ_ПРОЕКТ.appspot.com",
-            messagingSenderId: "ID",
-            appId: "APP_ID"
-        };
-        firebase.initializeApp(firebaseConfig);
+        // ВСТАВ СВІЙ CONFIG FIREBASE ТУТ
+        firebase.initializeApp({ /* Твій конфіг */ });
     </script>
     <script src="config.js"></script>
     <script src="script.js"></script>
