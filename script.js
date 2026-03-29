@@ -55,6 +55,19 @@ let currentAdminTab = 'balance';
 let adminInvUserId = null;
 let adminInvUserName = '';
 let selN_val = 1;
+const diceFaces = ['⚀','⚁','⚂','⚃','⚄','⚅'];
+
+window.selN = (n) => {
+    selN_val = n;
+    updUI();
+    // Bounce animation on dice face
+    const face = document.getElementById('dice-face');
+    if(face) {
+        face.style.transform = 'scale(0.85) rotate(-8deg)';
+        setTimeout(() => { face.style.transform = 'scale(1.08) rotate(4deg)'; }, 80);
+        setTimeout(() => { face.style.transform = 'scale(1) rotate(0deg)'; }, 160);
+    }
+};
 
 // --- БАЗОВА ЛОГІКА ---
 db.ref('players/' + myId).on('value', snap => {
@@ -210,20 +223,37 @@ window.listOnMarket = (petId) => {
 
 // --- ІНВЕНТАР ---
 function renderInv() {
-    let h = "";
+    if(!s.inv || s.inv.length === 0) {
+        document.getElementById('inv-list').innerHTML = `
+            <div style="text-align:center; padding:40px 20px; color:#8d99ae;">
+                <div style="font-size:48px; margin-bottom:12px">🥚</div>
+                <div style="font-weight:bold; font-size:15px; margin-bottom:6px">Інвентар порожній</div>
+                <div style="font-size:12px">Відкривай кейси в магазині!</div>
+            </div>`;
+        return;
+    }
+    let h = `<div style="font-size:11px; color:#8d99ae; margin-bottom:10px; font-weight:600">${s.inv.length} ПЕТІВ</div>`;
     s.inv.forEach(p => {
-        let isEq = s.p && s.p.id === p.id;
-        h += `<div class="market-item">
-            <div><span style="color:${p.c}">${p.s} ${p.n}</span><br><small>Бонус: x${p.m.toFixed(2)}</small></div>
-            <div style="display:flex; gap:5px">
-                <button class="btn-s" onclick="equip(${p.id})">${isEq?'✅':'ВЗЯТИ'}</button>
-                <button class="btn-s" style="background:var(--purple)" onclick="listOnMarket(${p.id})">🏪</button>
+        const isEq = s.p && s.p.id === p.id;
+        h += `<div class="pet-card ${isEq?'equipped':''}" style="--pet-color:${p.c}">
+            <div class="pet-emoji">${p.s}</div>
+            <div class="pet-info">
+                <div class="pet-rarity-badge" style="background:${p.c}20; color:${p.c}; border:1px solid ${p.c}40">${p.r}</div>
+                <div class="pet-name">${p.n} ${isEq ? '<span style="font-size:10px;background:rgba(88,166,255,0.15);color:var(--accent);padding:1px 6px;border-radius:4px;border:1px solid rgba(88,166,255,0.3)">● АКТИВНИЙ</span>' : ''}</div>
+                <div class="pet-stats">
+                    <div class="pet-stat">Бонус: <span>x${p.m.toFixed(3)}</span></div>
+                    <div class="pet-stat">LVL: <span>${p.lvl||1}</span></div>
+                </div>
+            </div>
+            <div class="pet-actions">
+                <button class="btn-s" style="${isEq?'background:rgba(88,166,255,0.15);border-color:rgba(88,166,255,0.3);color:var(--accent)':''}" onclick="equip(${p.id})">${isEq?'✅ Одягнено':'Одягти'}</button>
+                <button class="btn-s" style="background:rgba(191,64,191,0.15);border-color:rgba(191,64,191,0.3);color:#d080d0;font-size:12px" onclick="listOnMarket(${p.id})">🏪 Продати</button>
             </div>
         </div>`;
     });
-    document.getElementById('inv-list').innerHTML = h || "Інвентар порожній";
+    document.getElementById('inv-list').innerHTML = h;
 }
-window.equip = (id) => { s.p = s.inv.find(i => i.id === id); save(); renderInv(); };
+window.equip = (id) => { s.p = s.inv.find(i => i.id === id); save(); renderInv(); ren(); };
 
 // --- КОЛЕСО (CANVAS) ---
 let wheelAngle = 0;
@@ -367,19 +397,19 @@ let minesState = null;
 window.updateMinesCount = () => {
     const n = parseInt(document.getElementById('mines-count').value);
     document.getElementById('mines-count-label').innerText = n;
-    const safeCells = 25 - n;
-    const mult = calcMinesMult(0, safeCells);
-    document.getElementById('mines-mult-label').innerText = mult.toFixed(2);
+    const maxMult = (1.0 + n * 0.25).toFixed(2);
+    document.getElementById('mines-mult-label').innerText = maxMult;
 };
 
-function calcMinesMult(opened, safeCells) {
+function calcMinesMult(opened, mineCount) {
     if(opened === 0) return 1.0;
-    // multiplier grows as more safe cells are revealed
-    let m = 1.0;
-    for(let i=0; i<opened; i++) {
-        m *= (safeCells - i) > 0 ? (25 / (safeCells - i)) * 0.92 : 1;
-    }
-    return Math.min(parseFloat(m.toFixed(2)), 10.0);
+    // Базовий максимум залежить від кількості мін: 1 міна = x1.25 max, кожна +0.25
+    const maxMult = 1.0 + mineCount * 0.25;
+    // Прогрес: чим більше відкрив — тим ближче до maxMult
+    const safeCells = 25 - mineCount;
+    const progress = opened / safeCells;
+    const mult = 1.0 + (maxMult - 1.0) * progress;
+    return Math.round(mult * 100) / 100;
 }
 
 function renderMinesGrid() {
@@ -418,7 +448,7 @@ window.minesReveal = (idx) => {
         }, 700);
     } else {
         minesState.opened++;
-        const mult = calcMinesMult(minesState.opened, minesState.safeCells);
+        const mult = calcMinesMult(minesState.opened, minesState.mineCount);
         minesState.currentMult = mult;
         document.getElementById('mines-curr-mult').innerText = mult.toFixed(2);
         renderMinesGrid();
@@ -474,13 +504,26 @@ window.updUI = () => {
     document.getElementById('ui-mines').style.display = (g==='mines') ? 'block':'none';
     document.getElementById('ui-bj').style.display    = (g==='bj')    ? 'block':'none';
     if(g==='dice'){
-        let h=""; for(let i=1;i<=6;i++) h+=`<button class="btn-s ${i===selN_val?'active':''}" style="padding:15px; margin:2px" onclick="selN(${i})">${i}</button>`;
-        document.querySelector('.dice-grid').innerHTML=h;
+        const diceContainer = document.getElementById('ui-dice');
+        let h = `<div style="text-align:center; margin-bottom:12px">
+            <div id="dice-face" style="
+                display:inline-flex; align-items:center; justify-content:center;
+                width:72px; height:72px; background:linear-gradient(145deg,#1e2430,#0d1117);
+                border-radius:16px; border:2px solid rgba(88,166,255,0.25);
+                font-size:42px; box-shadow:0 8px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05);
+                transition:transform 0.15s; margin-bottom:4px;
+            ">${diceFaces[selN_val-1]}</div>
+            <div style="font-size:10px; color:#8d99ae; font-weight:bold">ВИБРАНЕ ЧИСЛО</div>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:10px;">`;
+        for(let i=1;i<=6;i++) h+=`<button class="dice-num-btn ${i===selN_val?'active':''}" onclick="selN(${i})">${diceFaces[i-1]}<span>${i}</span></button>`;
+        h += `</div>`;
+        diceContainer.innerHTML = h;
     }
     if(g==='wheel') { setTimeout(()=>drawWheel(wheelAngle), 50); }
     if(g==='mines') updateMinesCount();
 };
-window.selN=(n)=>{ selN_val=n; updUI(); };
+
 
 window.play = () => {
     const bt = parseFloat(document.getElementById('bet-a').value);
@@ -496,7 +539,16 @@ window.play = () => {
         let w=Math.random()>0.5; res(w, bt, 1.55, w?"Виграв!":"Програв");
     }
     else if(g==='dice'){
-        let r=Math.floor(Math.random()*6)+1; res(r===selN_val, bt, 2.05, `Випало ${r}`);
+        const face = document.getElementById('dice-face');
+        if(face) {
+            let ticks=0; const iv=setInterval(()=>{
+                face.innerText=diceFaces[Math.floor(Math.random()*6)];
+                face.style.transform=`rotate(${(Math.random()-0.5)*20}deg) scale(${0.9+Math.random()*0.15})`;
+                if(++ticks>10){clearInterval(iv); const r=Math.floor(Math.random()*6)+1; face.innerText=diceFaces[r-1]; face.style.transform='scale(1) rotate(0deg)'; res(r===selN_val,bt,2.05,`Випало ${r}`);}
+            },60);
+        } else {
+            let r=Math.floor(Math.random()*6)+1; res(r===selN_val,bt,2.05,`Випало ${r}`);
+        }
     }
     else if(g==='wheel'){
         if(wheelSpinning) return;
