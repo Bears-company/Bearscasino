@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
     <title>BEARS CASINO</title>
-    <link rel="stylesheet" href="style.css?v=5.0">
+    <link rel="stylesheet" href="style.css?v=6.0">
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -12,13 +12,13 @@
 <body>
 
 <header>
-    <div style="font-weight:900;font-size:19px;color:#fff;letter-spacing:1.5px">🐻 BEARS</div>
+    <div class="logo">BEARS CASINO</div>
     <div class="bal-card"><span id="bal-val">0</span> BB</div>
 </header>
 
 <div class="container">
 
-    <!-- ПЕТ КАРТКА -->
+    <!-- ПЕТ HUD -->
     <div class="pet-hud">
         <div id="p-img" class="pet-hud-emo">🥚</div>
         <div style="flex:1">
@@ -41,9 +41,11 @@
             <select id="g-sel" onchange="updUI()">
                 <option value="f50">⚖️ 50/50 (x1.55)</option>
                 <option value="dice">🎲 Кубик (x2.05)</option>
-                <option value="wheel">🎡 Колесо (до x1.8)</option>
+                <option value="wheel">🎡 Колесо (до x1.6)</option>
                 <option value="slots">🎰 Слоти (до x5.0)</option>
                 <option value="mines">💣 Міни (до x4.0)</option>
+                <option value="clown">🚪 Двері Клоуна (до x2.4) 🎉</option>
+                <option value="balloon">🎈 Клоунський Тир (до x2.5) 🎉</option>
                 <option value="bj">🃏 Блекджек (x2.0)</option>
             </select>
 
@@ -56,11 +58,11 @@
                     <canvas id="wheel-canvas" width="220" height="220"></canvas>
                     <div style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);font-size:22px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.9))">▼</div>
                 </div>
-                <div style="display:flex;justify-content:center;gap:14px;font-size:11px;font-weight:700">
-                    <span style="color:#e74c3c">🔴 0x 55%</span>
+                <div style="display:flex;justify-content:center;gap:12px;font-size:11px;font-weight:700;flex-wrap:wrap">
+                    <span style="color:#e74c3c">🔴 0x 50%</span>
                     <span style="color:#2ecc71">🟢 1.4x 25%</span>
-                    <span style="color:#3498db">🔵 1.6x 15%</span>
-                    <span style="color:#f39c12">🟡 1.8x 5%</span>
+                    <span style="color:#3498db">🔵 1.6x 20%</span>
+                    <span style="color:#8b5cf6">🟣 🗑️ 5%</span>
                 </div>
             </div>
 
@@ -72,10 +74,10 @@
                     <div class="slot-reel" id="reel-2">🍊</div>
                 </div>
                 <div style="font-size:10px;color:#8d99ae;font-weight:600;line-height:1.9">
-                    7 7 7 = <b style="color:#f59e0b">x5.0</b> &nbsp;|&nbsp;
+                    7 7 7 = <b style="color:var(--accent)">x5.0</b> &nbsp;|&nbsp;
                     💎💎💎 = <b style="color:#a78bfa">x4.0</b> &nbsp;|&nbsp;
-                    ⭐⭐⭐ = <b style="color:var(--accent)">x3.0</b><br>
-                    Три однакових = <b style="color:#2ecc71">x2.0</b> &nbsp;|&nbsp;
+                    ⭐⭐⭐ = <b style="color:#38bdf8">x3.0</b><br>
+                    Три однакових = <b style="color:#22c55e">x2.0</b> &nbsp;|&nbsp;
                     Два = <b style="color:#8d99ae">x1.3</b>
                 </div>
             </div>
@@ -95,6 +97,12 @@
                 </div>
             </div>
 
+            <!-- ДВЕРІ КЛОУНА -->
+            <div id="ui-clown" style="display:none;padding:8px 0"></div>
+
+            <!-- КЛОУНСЬКИЙ ТИР -->
+            <div id="ui-balloon" style="display:none;padding:8px 0"></div>
+
             <!-- БЛЕКДЖЕК -->
             <div id="ui-bj" style="display:none;text-align:center;padding:12px 0">
                 <div style="font-size:10px;color:#8d99ae;margin-bottom:6px;font-weight:700">ДИЛЕР</div>
@@ -102,8 +110,8 @@
                 <div style="font-size:10px;color:#8d99ae;margin-bottom:6px;font-weight:700">ВИ</div>
                 <div id="bj-pc" style="display:flex;justify-content:center;gap:8px"></div>
                 <div id="bj-ctrl" style="display:none;gap:10px;margin-top:16px;justify-content:center">
-                    <button class="btn-s" onclick="bjDo('hit')" style="background:var(--accent);min-width:90px;padding:10px">ЩЕ</button>
-                    <button class="btn-s" onclick="bjDo('stop')" style="background:var(--error);min-width:90px;padding:10px">СТОП</button>
+                    <button class="btn-s" onclick="bjDo('hit')" style="background:var(--accent);color:var(--btn-txt,#000);min-width:90px;padding:10px">ЩЕ</button>
+                    <button class="btn-s" onclick="bjDo('stop')" style="background:var(--error);color:#fff;min-width:90px;padding:10px">СТОП</button>
                 </div>
             </div>
 
@@ -130,8 +138,16 @@
     <!-- ТОП -->
     <div id="v-top" class="page" style="display:none">
         <div class="glass">
-            <h3 style="margin:0 0 14px;color:var(--warning)">🏆 ЛІДЕРИ</h3>
+            <h3 style="margin:0 0 14px;color:var(--accent)">🏆 ЛІДЕРИ</h3>
             <div id="leaderboard"></div>
+        </div>
+    </div>
+
+    <!-- НАЛАШТУВАННЯ -->
+    <div id="v-settings" class="page" style="display:none">
+        <div class="glass">
+            <h3 style="margin:0 0 16px;color:#fff">⚙️ Налаштування</h3>
+            <div id="settings-body"></div>
         </div>
     </div>
 
@@ -153,7 +169,7 @@
         <div id="case-scroll"></div>
     </div>
     <div id="case-res" style="margin-top:24px;font-size:22px;font-weight:bold;text-align:center"></div>
-    <button class="btn" style="width:200px;display:none;margin-top:20px;background:var(--success)" id="case-close" onclick="closeCase()">✅ ЗАБРАТИ</button>
+    <button class="btn" style="width:200px;display:none;margin-top:20px;background:var(--success);color:#fff" id="case-close" onclick="closeCase()">✅ ЗАБРАТИ</button>
 </div>
 
 <nav>
@@ -161,9 +177,10 @@
     <div class="nav-tab" onclick="tab('shop',this)">📦</div>
     <div class="nav-tab" onclick="tab('inv',this)">🎒</div>
     <div class="nav-tab" onclick="tab('top',this)">🏆</div>
+    <div class="nav-tab" onclick="tab('settings',this)">⚙️</div>
     <div id="admin-tab" class="nav-tab" style="display:none" onclick="tab('admin',this)">⚡</div>
 </nav>
 
-<script src="script.js?v=5.0"></script>
+<script src="script.js?v=6.0"></script>
 </body>
 </html>
