@@ -56,9 +56,26 @@ const CASES = {
 
 const ADMIN_ONLY_PETS = [
     {n:'Клоун',  s:'🤡',r:'Смехуятина', m:1.67,c:'#ff6b35'},
-    {n:'Гігачад',s:'🗿',r:'Міфічний',   m:5.20,c:'#bf40bf'},
     {n:'Смітник',s:'🗑️',r:'Легендарний',m:1.35,c:'#f43f5e'},
 ];
+
+// Видаляємо Гігачада з усіх інвентарів у Firebase
+function removeGigachadFromAll() {
+    db.ref('players').once('value', snap => {
+        snap.forEach(child => {
+            const p = child.val();
+            if (!p) return;
+            const inv = p.inv || [];
+            const filtered = inv.filter(pet => pet.n !== 'Гігачад');
+            if (filtered.length !== inv.length) {
+                db.ref('players/'+child.key+'/inv').set(filtered);
+                if (p.p && p.p.n === 'Гігачад')
+                    db.ref('players/'+child.key+'/p').set(null);
+            }
+        });
+    });
+}
+removeGigachadFromAll();
 
 // ============================================================
 // ТЕМИ
@@ -107,9 +124,14 @@ const LANGS = {
         saved:'✅ Збережено!', chosen:'ВИБРАНЕ ЧИСЛО',
         g_f50:'⚖️ 50/50 (x1.55)', g_dice:'🎲 Кубик (x2.05)',
         g_wheel:'🎡 Колесо (до x1.6)', g_slots:'🎰 Слоти (до x5.0)',
-        g_mines:'💣 Міни (до x4.0)', g_clown:'🚪 Двері Клоуна (до x2.4) 🎉',
-        g_balloon:'🎈 Клоунський Тир (до x2.5) 🎉', g_bj:'🃏 Блекджек (x2.0)',
+        g_mines:'💣 Міни (до x4.0)', g_clown:'🚪 Двері Клоуна 🎉',
+        g_balloon:'🎈 Клоунський Тир 🎉', g_bj:'🃏 Блекджек (x2.0)',
         expired:'Ця гра вже недоступна (закінчилась 2 квітня)',
+        navShop:'📦', navInv:'🎒', navTop:'🏆', navSet:'⚙️',
+        tabCases:'📦 Кейси', tabMarket:'🛒 Ринок',
+        dealer:'ДИЛЕР', you:'ВИ', hit:'ЩЕ', stand:'СТОП',
+        bonusLbl:'БОНУС', lvlLabel:'LVL',
+        adminBalance:'Баланс', adminPets:'Пети', adminInv:'Інвентар',
     },
     en: {
         chooseGame:'CHOOSE GAME', betLbl:'BET', betBtn:'PLACE BET',
@@ -126,9 +148,14 @@ const LANGS = {
         saved:'✅ Saved!', chosen:'CHOSEN NUMBER',
         g_f50:'⚖️ 50/50 (x1.55)', g_dice:'🎲 Dice (x2.05)',
         g_wheel:'🎡 Wheel (up to x1.6)', g_slots:'🎰 Slots (up to x5.0)',
-        g_mines:'💣 Mines (up to x4.0)', g_clown:'🚪 Clown Doors (up to x2.4) 🎉',
-        g_balloon:'🎈 Clown Shoot (up to x2.5) 🎉', g_bj:'🃏 Blackjack (x2.0)',
+        g_mines:'💣 Mines (up to x4.0)', g_clown:'🚪 Clown Doors 🎉',
+        g_balloon:'🎈 Clown Shoot 🎉', g_bj:'🃏 Blackjack (x2.0)',
         expired:'This game is no longer available (ended April 2)',
+        navShop:'📦', navInv:'🎒', navTop:'🏆', navSet:'⚙️',
+        tabCases:'📦 Cases', tabMarket:'🛒 Market',
+        dealer:'DEALER', you:'YOU', hit:'HIT', stand:'STAND',
+        bonusLbl:'BONUS', lvlLabel:'LVL',
+        adminBalance:'Balance', adminPets:'Pets', adminInv:'Inventory',
     },
     ru: {
         chooseGame:'ВЫБЕРИ ИГРУ', betLbl:'СТАВКА', betBtn:'СДЕЛАТЬ СТАВКУ',
@@ -145,9 +172,14 @@ const LANGS = {
         saved:'✅ Сохранено!', chosen:'ВЫБРАННОЕ ЧИСЛО',
         g_f50:'⚖️ 50/50 (x1.55)', g_dice:'🎲 Кубик (x2.05)',
         g_wheel:'🎡 Колесо (до x1.6)', g_slots:'🎰 Слоты (до x5.0)',
-        g_mines:'💣 Мины (до x4.0)', g_clown:'🚪 Двери Клоуна (до x2.4) 🎉',
-        g_balloon:'🎈 Клоунский Тир (до x2.5) 🎉', g_bj:'🃏 Блекджек (x2.0)',
+        g_mines:'💣 Мины (до x4.0)', g_clown:'🚪 Двери Клоуна 🎉',
+        g_balloon:'🎈 Клоунский Тир 🎉', g_bj:'🃏 Блекджек (x2.0)',
         expired:'Эта игра уже недоступна (закончилась 2 апреля)',
+        navShop:'📦', navInv:'🎒', navTop:'🏆', navSet:'⚙️',
+        tabCases:'📦 Кейсы', tabMarket:'🛒 Рынок',
+        dealer:'ДИЛЕР', you:'ВЫ', hit:'ЕЩЁ', stand:'СТОП',
+        bonusLbl:'БОНУС', lvlLabel:'УРВ',
+        adminBalance:'Баланс', adminPets:'Питомцы', adminInv:'Инвентарь',
     },
 };
 function L(k) { return (LANGS[currentLang]||LANGS.uk)[k] || k; }
@@ -155,15 +187,81 @@ function L(k) { return (LANGS[currentLang]||LANGS.uk)[k] || k; }
 function applyLang(lang) {
     currentLang = lang;
     localStorage.setItem('bc_lang', lang);
-    // оновлюємо тексти які є в DOM одразу
+
+    // Назви ігор у select
     const sel = document.getElementById('g-sel');
     if (sel) {
         const keys = ['g_f50','g_dice','g_wheel','g_slots','g_mines','g_clown','g_balloon','g_bj'];
         [...sel.options].forEach((o,i) => { if(keys[i]) o.text = L(keys[i]); });
     }
+
+    // Всі елементи з data-l атрибутом
     document.querySelectorAll('[data-l]').forEach(el => {
         el.textContent = L(el.dataset.l);
     });
+
+    // Кнопка ставки
+    const playBtn = document.getElementById('btn-play');
+    if (playBtn) playBtn.textContent = L('betBtn');
+
+    // Лейбли полів
+    const labels = document.querySelectorAll('.field-label[data-l]');
+    labels.forEach(el => el.textContent = L(el.dataset.l));
+
+    // Заголовки секцій
+    const invH = document.getElementById('inv-heading');
+    if (invH) invH.textContent = L('myPets');
+    const topH = document.getElementById('top-heading');
+    if (topH) topH.textContent = L('leaders');
+    const settH = document.getElementById('sett-heading');
+    if (settH) settH.textContent = L('settings');
+    const adminH = document.getElementById('admin-heading');
+    if (adminH) adminH.textContent = L('admin');
+
+    // Назви вкладок навігації
+    const navLabels = {
+        'nav-shop':'navShop','nav-inv':'navInv','nav-top':'navTop','nav-set':'navSet'
+    };
+    Object.entries(navLabels).forEach(([id, key]) => {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = L(key);
+    });
+
+    // Таби магазину (якщо відображаються)
+    const shopTabs = document.querySelectorAll('.s-tab[data-l]');
+    shopTabs.forEach(el => el.textContent = L(el.dataset.l));
+
+    // Таби адмінки
+    const adminTabs = document.querySelectorAll('.a-tab[data-l]');
+    adminTabs.forEach(el => el.textContent = L(el.dataset.l));
+
+    // BJ лейбли
+    const bjDealer = document.getElementById('bj-dealer-lbl');
+    const bjYou    = document.getElementById('bj-you-lbl');
+    if (bjDealer) bjDealer.textContent = L('dealer');
+    if (bjYou)    bjYou.textContent    = L('you');
+
+    // BJ кнопки
+    const bjHit  = document.getElementById('bj-hit');
+    const bjStop = document.getElementById('bj-stop');
+    if (bjHit)  bjHit.textContent  = L('hit');
+    if (bjStop) bjStop.textContent = L('stand');
+
+    // Кубик — перемалювати якщо відображається
+    if (document.getElementById('ui-dice') &&
+        document.getElementById('ui-dice').style.display !== 'none') buildDiceUI();
+
+    // Налаштування — перерендерити якщо відкриті
+    if (document.getElementById('v-settings') &&
+        document.getElementById('v-settings').style.display !== 'none') renderSettings();
+
+    // Магазин — перерендерити якщо відкритий
+    if (document.getElementById('v-shop') &&
+        document.getElementById('v-shop').style.display !== 'none') renderShop();
+
+    // Інвентар
+    if (document.getElementById('v-inv') &&
+        document.getElementById('v-inv').style.display !== 'none') renderInv();
 }
 
 // ============================================================
@@ -254,8 +352,8 @@ window.setShopTab = t => { currentShopTab = t; renderShop(); };
 function renderShop() {
     const list = document.getElementById('shop-list');
     const tabs = `<div class="shop-tabs">
-        <div class="s-tab ${currentShopTab==='cases'?'active':''}" onclick="setShopTab('cases')">📦 Кейси</div>
-        <div class="s-tab ${currentShopTab==='market'?'active':''}" onclick="setShopTab('market')">🛒 Ринок</div>
+        <div class="s-tab ${currentShopTab==='cases'?'active':''}" onclick="setShopTab('cases')">${L('tabCases')}</div>
+        <div class="s-tab ${currentShopTab==='market'?'active':''}" onclick="setShopTab('market')">${L('tabMarket')}</div>
     </div>`;
     if (currentShopTab === 'cases') {
         let h = tabs; const now = Date.now();
@@ -953,9 +1051,9 @@ function loadAdmin(){
     if(currentAdminTab==='inv'&&adminInvUserId){loadAdminUserInv(adminInvUserId,adminInvUserName);return;}
     db.ref('players').once('value',snap=>{
         let tabs=`<div class="admin-tabs">
-            <div class="a-tab ${currentAdminTab==='balance'?'active':''}" onclick="setAdminTab('balance')">💰 Баланс</div>
-            <div class="a-tab ${currentAdminTab==='pets'?'active':''}" onclick="setAdminTab('pets')">🐾 Пети</div>
-            <div class="a-tab ${currentAdminTab==='inv'?'active':''}" onclick="setAdminTab('inv')">🎒 Інвентар</div>
+            <div class="a-tab ${currentAdminTab==='balance'?'active':''}" onclick="setAdminTab('balance')">💰 ${L('adminBalance')}</div>
+            <div class="a-tab ${currentAdminTab==='pets'?'active':''}" onclick="setAdminTab('pets')">🐾 ${L('adminPets')}</div>
+            <div class="a-tab ${currentAdminTab==='inv'?'active':''}" onclick="setAdminTab('inv')">🎒 ${L('adminInv')}</div>
         </div>`;
         let h=tabs;
         snap.forEach(c=>{
