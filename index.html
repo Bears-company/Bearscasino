@@ -3,32 +3,36 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
-    <title>BEARS CASINO</title>
-    <link rel="stylesheet" href="style.css?v=6.0">
+    <title>BEARS CASINO 🐣</title>
+    <link rel="stylesheet" href="style.css?v=7.0">
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
 
+<!-- Великодній фон -->
+<canvas id="easter-bg" style="position:fixed;top:0;left:0;pointer-events:none;z-index:0"></canvas>
+
 <header>
     <div class="logo">BEARS CASINO</div>
     <div class="bal-card"><span id="bal-val">0</span> BB</div>
 </header>
 
-<div class="container">
+<div class="container" style="position:relative;z-index:1">
 
     <!-- ПЕТ HUD -->
     <div class="pet-hud">
         <div id="p-img" class="pet-hud-emo">🥚</div>
+        <canvas id="p-hud-canvas" width="60" height="60" style="border-radius:12px;display:none;flex-shrink:0"></canvas>
         <div style="flex:1">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
-                <div id="p-rarity" class="rarity-pill">НЕМАЄ</div>
-                <div id="p-name" style="font-weight:800;font-size:15px">Обери пета</div>
+                <div id="p-rarity" class="rarity-pill" data-l="noPetRarity">НЕМАЄ</div>
+                <div id="p-name" style="font-weight:800;font-size:15px" data-l="noPet">Обери пета</div>
             </div>
             <div class="xp-bar"><div id="xp-f" class="xp-fill"></div></div>
             <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:600;color:#8d99ae">
-                <span>БОНУС <span id="p-m" style="color:var(--accent)">x1.000</span></span>
+                <span><span id="pet-bonus-lbl">БОНУС</span> <span id="p-m" style="color:var(--accent)">x1.000</span></span>
                 <span>LVL <span id="p-l" style="color:#fff">1</span> → XP</span>
             </div>
         </div>
@@ -44,15 +48,15 @@
                 <option value="wheel">🎡 Колесо (до x1.6)</option>
                 <option value="slots">🎰 Слоти (до x5.0)</option>
                 <option value="mines">💣 Міни (до x4.0)</option>
-                <option value="clown">🚪 Двері Клоуна (до x2.4) 🎉</option>
-                <option value="balloon">🎈 Клоунський Тир (до x2.5) 🎉</option>
+                <option value="clown">🐰 Двері Великодня (до x2.4)</option>
+                <option value="balloon">🥚 Яйце Удачі (до x2.5)</option>
                 <option value="bj">🃏 Блекджек (x2.0)</option>
+                <option value="pvp">⚔️ Бій Крашанками</option>
+                <option value="plinko">🥚 Кошик Удачі</option>
             </select>
 
-            <!-- КУБИК -->
             <div id="ui-dice" style="display:none;margin:14px 0"></div>
 
-            <!-- КОЛЕСО -->
             <div id="ui-wheel" style="display:none;text-align:center;padding:8px 0">
                 <div style="position:relative;width:220px;height:220px;margin:0 auto 12px">
                     <canvas id="wheel-canvas" width="220" height="220"></canvas>
@@ -62,11 +66,10 @@
                     <span style="color:#e74c3c">🔴 0x 50%</span>
                     <span style="color:#2ecc71">🟢 1.4x 25%</span>
                     <span style="color:#3498db">🔵 1.6x 20%</span>
-                    <span style="color:#8b5cf6">🟣 🗑️ 5%</span>
+                    <span style="color:#f59e0b">🟡 🍯🐻 5%</span>
                 </div>
             </div>
 
-            <!-- СЛОТИ -->
             <div id="ui-slots" style="display:none;text-align:center;padding:12px 0">
                 <div style="display:flex;justify-content:center;gap:10px;margin-bottom:14px">
                     <div class="slot-reel" id="reel-0">🍒</div>
@@ -74,15 +77,11 @@
                     <div class="slot-reel" id="reel-2">🍊</div>
                 </div>
                 <div style="font-size:10px;color:#8d99ae;font-weight:600;line-height:1.9">
-                    7 7 7 = <b style="color:var(--accent)">x5.0</b> &nbsp;|&nbsp;
-                    💎💎💎 = <b style="color:#a78bfa">x4.0</b> &nbsp;|&nbsp;
-                    ⭐⭐⭐ = <b style="color:#38bdf8">x3.0</b><br>
-                    Три однакових = <b style="color:#22c55e">x2.0</b> &nbsp;|&nbsp;
-                    Два = <b style="color:#8d99ae">x1.3</b>
+                    7 7 7 = <b style="color:var(--accent)">x5.0</b> | 💎💎💎 = <b style="color:#a78bfa">x4.0</b> | ⭐⭐⭐ = <b style="color:#38bdf8">x3.0</b><br>
+                    3 однакових = <b style="color:#22c55e">x2.0</b> | 2 = <b style="color:#8d99ae">x1.3</b>
                 </div>
             </div>
 
-            <!-- МІНИ -->
             <div id="ui-mines" style="display:none;padding:8px 0">
                 <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
                     <div style="font-size:12px;color:#8d99ae;font-weight:700;white-space:nowrap">💣 <span id="mines-count-label">3</span></div>
@@ -97,13 +96,11 @@
                 </div>
             </div>
 
-            <!-- ДВЕРІ КЛОУНА -->
             <div id="ui-clown" style="display:none;padding:8px 0"></div>
-
-            <!-- КЛОУНСЬКИЙ ТИР -->
             <div id="ui-balloon" style="display:none;padding:8px 0"></div>
+            <div id="ui-pvp" style="display:none;padding:8px 0"></div>
+            <div id="ui-plinko" style="display:none;padding:8px 0"></div>
 
-    <!-- БЛЕКДЖЕК -->
             <div id="ui-bj" style="display:none;text-align:center;padding:12px 0">
                 <div id="bj-dealer-lbl" style="font-size:10px;color:#8d99ae;margin-bottom:6px;font-weight:700">ДИЛЕР</div>
                 <div id="bj-dc" style="display:flex;justify-content:center;gap:8px;margin-bottom:14px"></div>
@@ -122,12 +119,8 @@
         </div>
     </div>
 
-    <!-- МАГАЗИН -->
-    <div id="v-shop" class="page" style="display:none">
-        <div id="shop-list"></div>
-    </div>
+    <div id="v-shop" class="page" style="display:none"><div id="shop-list"></div></div>
 
-    <!-- ІНВЕНТАР -->
     <div id="v-inv" class="page" style="display:none">
         <div class="glass">
             <h3 id="inv-heading" style="margin:0 0 14px;color:#fff">🎒 МОЇ ПЕТИ</h3>
@@ -135,7 +128,6 @@
         </div>
     </div>
 
-    <!-- ТОП -->
     <div id="v-top" class="page" style="display:none">
         <div class="glass">
             <h3 id="top-heading" style="margin:0 0 14px;color:var(--accent)">🏆 ЛІДЕРИ</h3>
@@ -143,7 +135,6 @@
         </div>
     </div>
 
-    <!-- НАЛАШТУВАННЯ -->
     <div id="v-settings" class="page" style="display:none">
         <div class="glass">
             <h3 id="sett-heading" style="margin:0 0 16px;color:#fff">⚙️ Налаштування</h3>
@@ -151,19 +142,16 @@
         </div>
     </div>
 
-    <!-- АДМІН -->
     <div id="v-admin" class="page" style="display:none">
         <div class="glass">
             <h3 id="admin-heading" style="margin:0 0 14px;color:var(--accent)">⚡ АДМІН</h3>
             <div id="admin-list"></div>
         </div>
     </div>
-
 </div>
 
-<!-- КЕЙС МОДАЛ -->
 <div id="case-modal">
-    <h2 style="margin:0 0 20px;text-shadow:0 0 20px var(--accent)">ВІДКРИВАЄМО...</h2>
+    <h2 id="case-title" style="margin:0 0 20px;text-shadow:0 0 20px var(--accent)">ВІДКРИВАЄМО...</h2>
     <div class="case-roulette">
         <div style="position:absolute;left:50%;top:0;width:3px;height:100%;background:var(--accent);z-index:10;box-shadow:0 0 10px var(--accent)"></div>
         <div id="case-scroll"></div>
@@ -172,7 +160,7 @@
     <button class="btn" style="width:200px;display:none;margin-top:20px;background:var(--success);color:#fff" id="case-close" onclick="closeCase()">✅ ЗАБРАТИ</button>
 </div>
 
-<nav>
+<nav style="position:relative;z-index:2">
     <div class="nav-tab active" onclick="tab('main',this)">🎮</div>
     <div class="nav-tab" onclick="tab('shop',this)">📦</div>
     <div class="nav-tab" onclick="tab('inv',this)">🎒</div>
@@ -181,6 +169,8 @@
     <div id="admin-tab" class="nav-tab" style="display:none" onclick="tab('admin',this)">⚡</div>
 </nav>
 
-<script src="script.js?v=6.0"></script>
+<script src="petimages.js"></script>
+<script src="music.js"></script>
+<script src="script.js?v=7.0"></script>
 </body>
 </html>
