@@ -23,7 +23,11 @@ const myId            = tg.initDataUnsafe?.user?.id || 101;
 const myName          = tg.initDataUnsafe?.user?.first_name || "Гравець";
 const DEADLINE_EASTER = new Date("2026-04-14T00:00:00+03:00").getTime();
 const DEADLINE_CLOWN  = new Date("2026-04-14T00:00:00+03:00").getTime();
-const XP_PER_LEVEL    = 1000;
+const XP_BASE = 1000; // XP для 1-го рівня
+function xpForLevel(lvl) {
+    // Кожен рівень потребує на 30% більше ніж попередній
+    return Math.round(XP_BASE * Math.pow(1.3, (lvl||1) - 1));
+}
 
 // ============================================================
 // ПЕТИ — canvas малюнки + анімація
@@ -88,19 +92,22 @@ function getPetImageSrc(pet) {
 function createPetCardHTML(pet, size=80) {
   const glow   = RARITY_GLOW[pet.r] || '#94a3b8';
   const bg     = RARITY_BG[pet.r]   || RARITY_BG['Звичайний'];
-  const anim   = RARITY_ANIM[pet.r] || '';
   const radius = Math.round(size*0.18);
   const imgSrc = getPetImageSrc(pet);
   const particles = makeRarityParticles(pet.r, glow);
+
+  // Анімація ТІЛЬКИ для emoji-петів (без фото)
+  const hasPhoto = imgSrc.type === 'img';
+  const anim = hasPhoto ? '' : (RARITY_ANIM[pet.r] || '');
   const animStyle = anim ? `animation:${anim} 2.5s ease-in-out infinite` : '';
 
   let content;
-  if (imgSrc.type === 'img') {
-    const sz = Math.round(size * 0.9);
-    // Показуємо тільки img — без дублювання emoji
+  if (hasPhoto) {
+    const sz = Math.round(size * 0.90);
+    // Фото без анімації. Фон контейнера завжди видно через прозорі пікселі
     content = `<img src="${imgSrc.src}"
       width="${sz}" height="${sz}"
-      style="object-fit:contain;position:relative;z-index:1;${animStyle};filter:drop-shadow(0 2px 12px ${glow}aa)"
+      style="object-fit:contain;position:relative;z-index:1;display:block;flex-shrink:0"
       alt="${pet.n}">`;
   } else {
     content = `<span style="font-size:${Math.round(size*.54)}px;line-height:1;position:relative;z-index:1;${animStyle}">${imgSrc.src}</span>`;
@@ -273,9 +280,9 @@ const CASES = {
         {n:'Бджола',s:'🐝',r:'Рідкісний',  m:1.12,w:40,c:'#a855f7'},
         {n:'Панда', s:'🐼',r:'Епічний',    m:1.14,w:10,c:'#f59e0b'}]},
     legend:   { n:"Legendary Case 👑", p:1200, drop:[
-        {n:'Панда', s:'🐼',r:'Епічний',    m:1.14,w:56,c:'#f59e0b'},
-        {n:'Лев',   s:'🦁',r:'Легендарний',m:1.16,w:24,c:'#f43f5e'},
-        {n:'Дракон',s:'🐲',r:'Легендарний',m:1.17,w:20,c:'#f43f5e'}]},
+        {n:'Панда',    s:'🐼',r:'Епічний',    m:1.14,w:50,c:'#f59e0b'},
+        {n:'Лев',      s:'🦁',r:'Легендарний',m:1.16,w:30,c:'#f43f5e'},
+        {n:'Дракон',   s:'🐲',r:'Легендарний',m:1.17,w:20,c:'#f43f5e'}]},
     easter:   { n:"Великодній Кейс 🥚", p:1450, limited:true, deadline:DEADLINE_EASTER_CASE, drop:[
         {n:'Місячний заєць',   s:'🌙🐇',r:'Рідкісний',  m:1.165,w:33,c:'#a855f7',drawKey:'moonhare'},
         {n:'Місячний баранчик',s:'🌙🐑',r:'Рідкісний',  m:1.165,w:33,c:'#a855f7',drawKey:'moonlamb'},
@@ -285,9 +292,12 @@ const CASES = {
 };
 
 const ADMIN_ONLY_PETS = [
-    {n:'Клоун',              s:'🤡',r:'Смехуятина', m:1.67, c:'#ff6b35'},
+    {n:'Клоун',              s:'🤡',r:'Смехуятина', m:1.67, c:'#ff6b35',drawKey:'clown2'},
     {n:'Смітник',            s:'🗑️',r:'Легендарний',m:1.35, c:'#f43f5e'},
     {n:'Медовий пасх. медвідь',s:'🍯🐻',r:'Епічний',m:1.25, c:'#f59e0b',drawKey:'honeybear'},
+    {n:'Унітаз',             s:'🚽',r:'Епічний',    m:1.20, c:'#f59e0b',drawKey:'toilet'},
+    {n:'Какашка',            s:'💩',r:'Легендарний', m:1.25, c:'#f43f5e',drawKey:'poop'},
+    {n:'Нокіа3310',          s:'📱',r:'Міфічний',   m:1.32, c:'#bf40bf',drawKey:'nokia'},
 ];
 
 // ============================================================
@@ -496,13 +506,21 @@ function save(){db.ref('players/'+myId).set(s);}
 // ============================================================
 function checkPetLevelUp(){
     if(!s.p) return;
-    const needed=(s.p.lvl||1)*XP_PER_LEVEL;
-    if(s.x>=needed){
-        s.x-=needed; s.p.lvl=(s.p.lvl||1)+1;
-        s.p.m=Math.round((s.p.m+0.005)*1000)/1000;
-        const idx=s.inv.findIndex(i=>i.id===s.p.id);
-        if(idx!==-1) s.inv[idx]=s.p;
-        save(); showToast(`${s.p.s||''} <b>${s.p.n}</b> — LVL ${s.p.lvl}! <span style="color:var(--accent)">+0.005</span>`);
+    let levelled = false;
+    // Цикл — пет може підняти кілька рівнів за раз
+    while(s.x >= xpForLevel(s.p.lvl||1)){
+        const needed = xpForLevel(s.p.lvl||1);
+        s.x  -= needed;
+        s.p.lvl = (s.p.lvl||1) + 1;
+        s.p.m   = Math.round((s.p.m + 0.005)*1000)/1000;
+        levelled = true;
+    }
+    if(levelled){
+        const idx = s.inv.findIndex(i=>i.id===s.p.id);
+        if(idx!==-1) s.inv[idx] = s.p;
+        save();
+        showToast(`${getPetEmoji(s.p)} <b>${s.p.n}</b> — LVL ${s.p.lvl}! <span style="color:var(--accent)">+0.005 бонус</span>`);
+        ren();
     }
 }
 function showToast(html){
@@ -522,32 +540,61 @@ const RARITY_GLOW={
 };
 
 function ren(){
-    document.getElementById('bal-val').innerText=Number.isInteger(s.b)?s.b:s.b.toFixed(2);
-    const petLvl=s.p?(s.p.lvl||1):1;
-    document.getElementById('xp-f').style.width=Math.min((s.x/(petLvl*XP_PER_LEVEL))*100,100)+'%';
-    const bonusLblEl=document.getElementById('pet-bonus-lbl');
-    if(bonusLblEl) bonusLblEl.textContent=L('bonusLabelHud');
-    if(s.p){
-        document.getElementById('p-img').innerText='';
-        // Draw pet on HUD canvas
-        const hc=document.getElementById('p-hud-canvas');
-        if(hc){ hc.width=hc.width; startPetAnim('p-hud-canvas',s.p); }
-        else {
-            const img=document.getElementById('p-img');
-            if(img) img.innerText=s.p.s||'';
+    // Баланс
+    document.getElementById('bal-val').innerText = Number.isInteger(s.b) ? s.b : s.b.toFixed(2);
+
+    const petLvl  = s.p ? (s.p.lvl||1) : 1;
+    const needed  = xpForLevel(petLvl);
+    const pct     = Math.min((s.x / needed)*100, 100);
+
+    // XP бар з анімацією
+    const xpFill = document.getElementById('xp-f');
+    if (xpFill) xpFill.style.width = pct + '%';
+
+    // XP текст
+    const xpText = document.getElementById('xp-text');
+    if (xpText) xpText.textContent = `${s.x} / ${needed} XP`;
+
+    // Бонус лейбл
+    const bonusLbl = document.getElementById('pet-bonus-lbl');
+    if (bonusLbl) bonusLbl.textContent = L('bonusLabelHud');
+
+    const hudWrap = document.getElementById('p-hud-wrap');
+
+    if (s.p) {
+        // HUD зображення
+        if (hudWrap) {
+            const imgSrc = getPetImageSrc(s.p);
+            if (imgSrc.type === 'img') {
+                // Фото — без анімації руху
+                hudWrap.innerHTML = `<img src="${imgSrc.src}" style="width:52px;height:52px;object-fit:contain;">`;
+            } else {
+                // Emoji — з анімацією float
+                hudWrap.innerHTML = `<span style="font-size:34px;animation:pet-float 3s ease-in-out infinite">${imgSrc.src}</span>`;
+            }
         }
-        document.getElementById('p-name').innerText=s.p.n;
-        document.getElementById('p-m').innerText=s.p.m.toFixed(3);
-        document.getElementById('p-l').innerText=s.p.lvl||1;
-        const t=document.getElementById('p-rarity');
-        t.innerText=s.p.r; t.style.background=s.p.c;
+        document.getElementById('p-name').innerText  = s.p.n;
+        document.getElementById('p-m').innerText     = 'x' + s.p.m.toFixed(3);
+        document.getElementById('p-l').innerText     = s.p.lvl || 1;
+        const rb = document.getElementById('p-rarity');
+        rb.innerText = s.p.r;
+        rb.style.background = (s.p.c||'#94a3b8') + '22';
+        rb.style.color = s.p.c || '#94a3b8';
+        rb.style.border = `1px solid ${s.p.c||'#94a3b8'}44`;
     } else {
-        const img=document.getElementById('p-img'); if(img) img.innerText='🥚';
-        document.getElementById('p-name').innerText=L('noPet');
-        const t=document.getElementById('p-rarity');
-        t.innerText=L('noPetRarity'); t.style.background='';
+        if (hudWrap) hudWrap.innerHTML = `<span style="font-size:34px">🥚</span>`;
+        document.getElementById('p-name').innerText = L('noPet');
+        document.getElementById('p-m').innerText    = 'x1.000';
+        document.getElementById('p-l').innerText    = '1';
+        const rb = document.getElementById('p-rarity');
+        rb.innerText = L('noPetRarity');
+        rb.style.background = 'rgba(107,114,128,.2)';
+        rb.style.color = '#9ca3af';
+        rb.style.border = '1px solid rgba(107,114,128,.3)';
     }
-    if(ADMINS.includes(Number(myId))) document.getElementById('admin-tab').style.display='block';
+
+    if (ADMINS.includes(Number(myId)))
+        document.getElementById('admin-tab').style.display = 'flex';
 }
 
 // ============================================================
@@ -599,24 +646,54 @@ function renderShop(){
         }
         list.innerHTML=h;
     } else {
-        list.innerHTML=tabs+`<div id="m-list" class="glass" style="text-align:center;color:#8d99ae">${L('loading')}</div>`;
+        list.innerHTML=tabs+`<div id="m-list" class="card" style="text-align:center;color:var(--muted)">${L('loading')}</div>`;
         db.ref('market').once('value',snap=>{
-            let h='';
+            let myLots='', otherLots='';
             snap.forEach(child=>{
                 const lot=child.val();
                 if(!lot||!lot.pet) return;
-                if(String(lot.sellerId)===String(myId)) return;
-                h+=`<div class="market-item">
-                    <div><div style="font-weight:700;color:${lot.pet.c}">${lot.pet.s} ${lot.pet.n}</div>
-                    <div style="font-size:11px;color:#8d99ae">LVL ${lot.pet.lvl||1} · x${lot.pet.m.toFixed(3)} · ${lot.sellerName}</div></div>
-                    <button class="btn-buy" onclick="buyFromMarket('${child.key}')">${lot.price} BB</button>
-                </div>`;
+                const imgSrc=getPetImageSrc(lot.pet);
+                const icon = imgSrc.type==='img'
+                    ? `<img src="${imgSrc.src}" width="38" height="38" style="object-fit:contain;border-radius:8px;flex-shrink:0">`
+                    : `<span style="font-size:28px;flex-shrink:0">${lot.pet.s}</span>`;
+                if(String(lot.sellerId)===String(myId)){
+                    myLots+=`<div class="market-item">
+                        ${icon}
+                        <div style="flex:1">
+                            <div style="font-weight:700;color:${lot.pet.c};font-size:13px">${lot.pet.n}</div>
+                            <div style="font-size:11px;color:var(--muted)">Твій лот · <b style="color:var(--accent2)">${lot.price} BB</b></div>
+                        </div>
+                        <button class="btn-ghost" style="color:var(--error);border-color:rgba(239,68,68,.3);font-size:11px;padding:7px 10px" onclick="cancelMarketLot('${child.key}')">✕ Забрати</button>
+                    </div>`;
+                } else {
+                    otherLots+=`<div class="market-item">
+                        ${icon}
+                        <div style="flex:1">
+                            <div style="font-weight:700;color:${lot.pet.c};font-size:13px">${lot.pet.n}</div>
+                            <div style="font-size:11px;color:var(--muted)">LVL ${lot.pet.lvl||1} · x${lot.pet.m.toFixed(3)} · ${lot.sellerName}</div>
+                        </div>
+                        <button class="btn-buy" onclick="buyFromMarket('${child.key}')">${lot.price} BB</button>
+                    </div>`;
+                }
             });
+            let result='';
+            if(myLots) result+=`<div style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.5px;margin-bottom:8px">МОЇ ЛОТИ</div>${myLots}<div style="height:1px;background:rgba(255,255,255,.06);margin:12px 0"></div>`;
+            result+=otherLots||`<div style="padding:20px;text-align:center;color:var(--muted)">${L('marketEmpty')}</div>`;
             const el=document.getElementById('m-list');
-            if(el) el.innerHTML=h||`<div style="padding:30px;text-align:center;color:#8d99ae">${L('marketEmpty')}</div>`;
+            if(el) el.innerHTML=result;
         });
     }
 }
+window.cancelMarketLot=lotId=>{
+    db.ref('market/'+lotId).once('value',snap=>{
+        const lot=snap.val();
+        if(!lot) return;
+        s.inv.push(lot.pet); save();
+        db.ref('market/'+lotId).remove();
+        showToast(`✅ ${lot.pet.n} повернуто в інвентар`);
+        renderShop();
+    });
+};
 window.buyFromMarket=lotId=>{
     db.ref('market/'+lotId).once('value',snap=>{
         const lot=snap.val();
@@ -643,40 +720,61 @@ window.listOnMarket=petId=>{
 function renderInv(){
     stopAllPetAnims();
     const el=document.getElementById('inv-list');
+    const countEl=document.getElementById('inv-count');
+    if(countEl) countEl.textContent=s.inv.length ? `${s.inv.length} ${L('invCountLabel')}` : '';
     if(!s.inv||!s.inv.length){
-        el.innerHTML=`<div class="inv-empty"><div style="font-size:52px;margin-bottom:12px">🥚</div>
-            <div style="font-weight:bold;font-size:15px">${L('invEmpty')}</div>
-            <div style="font-size:12px;opacity:.6;margin-top:4px">${L('invEmptySub')}</div></div>`;
+        el.innerHTML=`<div class="inv-empty">
+            <div style="font-size:52px;margin-bottom:12px">🥚</div>
+            <div style="font-weight:700;font-size:15px">${L('invEmpty')}</div>
+            <div style="font-size:12px;opacity:.6;margin-top:4px">${L('invEmptySub')}</div>
+        </div>`;
         return;
     }
-    let h=`<div style="font-size:11px;color:#8d99ae;font-weight:700;margin-bottom:10px;letter-spacing:.5px">${s.inv.length} ${L('invCountLabel')}</div>`;
+    let h='';
     s.inv.forEach((p,i)=>{
         const eq=s.p&&s.p.id===p.id;
-        const containerId=`pet-vis-${i}`;
+        const cid=`pet-vis-${i}`;
+        const pvl=p.lvl||1, pxp=s.p&&s.p.id===p.id?s.x:0;
+        const pct=eq?Math.min((pxp/xpForLevel(pvl))*100,100):0;
+        // Quick sell price = base multiplier * 50
+        const qsPrice = Math.floor(p.m * 50);
         h+=`<div class="pet-card${eq?' pet-eq':''}">
             <div class="pet-stripe" style="background:${p.c}"></div>
-            <div id="${containerId}" data-size="72" style="flex-shrink:0"></div>
-            <div class="pet-info">
-                <div class="pet-badge" style="background:${p.c}25;color:${p.c};border:1px solid ${p.c}50">${p.r}</div>
-                <div class="pet-name">${p.n}${eq?`<span class="pet-active-tag">✦ ${L('activePet')}</span>`:''}</div>
-                <div class="pet-stats">
-                    <span>${L('bonusWord')} <b style="color:${p.c}">x${p.m.toFixed(3)}</b></span>
-                    <span style="margin-left:10px">LVL <b style="color:#eee">${p.lvl||1}</b></span>
+            <div id="${cid}" data-size="68" style="flex-shrink:0"></div>
+            <div class="pet-info" style="overflow:hidden">
+                <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">
+                    <div class="pet-badge" style="background:${p.c}22;color:${p.c};border:1px solid ${p.c}44">${p.r}</div>
+                    ${eq?`<span class="pet-active-tag">✦ ${L('activePet')}</span>`:''}
                 </div>
+                <div class="pet-name">${p.n}</div>
+                <div class="pet-stats"><span>${L('bonusWord')} <b style="color:${p.c}">x${p.m.toFixed(3)}</b> · LVL <b style="color:#fff">${pvl}</b></span></div>
+                ${eq?`<div style="margin-top:5px">
+                    <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--muted);margin-bottom:2px">
+                        <span>XP</span><span>${pxp}/${xpForLevel(pvl)}</span>
+                    </div>
+                    <div class="xp-bar" style="height:4px"><div class="xp-fill" style="width:${pct}%"></div></div>
+                </div>`:''}
             </div>
             <div class="pet-btns">
                 <button class="pb-equip${eq?' pb-eq':''}" onclick="equip(${p.id})">${eq?L('equipped'):L('equip')}</button>
-                <button class="pb-sell" onclick="listOnMarket(${p.id})">🏪</button>
+                <button class="pb-sell" onclick="listOnMarket(${p.id})" title="На ринок">🏪</button>
+                <button class="pb-quick-sell" onclick="quickSell(${p.id},${qsPrice})" title="Продати за ${qsPrice} BB">💰${qsPrice}</button>
             </div>
         </div>`;
     });
     el.innerHTML=h;
-    // Insert pet visuals after render
-    requestAnimationFrame(()=>{
-        s.inv.forEach((p,i)=>startPetAnim(`pet-vis-${i}`,p));
-    });
+    requestAnimationFrame(()=>{ s.inv.forEach((p,i)=>startPetAnim(`pet-vis-${i}`,p)); });
 }
 window.equip=id=>{s.p=s.inv.find(i=>i.id===id);save();renderInv();ren();};
+window.quickSell=(petId,price)=>{
+    const pet=s.inv.find(p=>p.id===petId);
+    if(!pet) return;
+    if(s.p&&s.p.id===petId) return alert(`Спочатку зніми ${pet.n}!`);
+    if(!confirm(`Продати ${pet.s||''} ${pet.n} за ${price} BB?`)) return;
+    s.inv=s.inv.filter(p=>p.id!==petId);
+    s.b+=price; save(); renderInv(); ren();
+    showToast(`💰 Продано ${pet.n} за ${price} BB`);
+};
 
 // ============================================================
 // КОЛЕСО
@@ -1147,37 +1245,141 @@ function dropPlinkoEgg(bt){
 // ============================================================
 // CANVAS КЕЙСИ
 // ============================================================
+function openCaseAnimation(win, onComplete) {
+    const modal = document.getElementById('case-modal');
+    const title = document.getElementById('case-title');
+    const resEl = document.getElementById('case-res');
+    const closeEl = document.getElementById('case-close');
+    const glow = RARITY_GLOW[win.r] || '#fff';
+
+    modal.style.display = 'flex';
+    closeEl.style.display = 'none';
+    resEl.innerHTML = '';
+
+    // Phase 1: Show rolling roulette
+    const scr = document.getElementById('case-scroll');
+    const CARD_W = 92, COUNT = 52, WIN_IDX = 38;
+    const pool = [];
+    for(const key in CASES) pool.push(...CASES[key].drop);
+    if(!pool.length) pool.push(win);
+    scr.innerHTML = ''; scr.style.transition = 'none'; scr.style.left = '0px';
+    const items = [];
+    for(let i=0;i<COUNT;i++) items.push(i===WIN_IDX ? win : pool[Math.floor(Math.random()*pool.length)]);
+    items.forEach(pet=>{
+        const cv=document.createElement('canvas'); cv.width=86; cv.height=106;
+        cv.style.cssText='display:block;margin:3px;border-radius:14px;flex-shrink:0';
+        scr.appendChild(cv); drawPetCard(cv,pet);
+    });
+
+    // Start spin
+    setTimeout(()=>{
+        scr.style.transition='4.5s cubic-bezier(0.08,0,0.05,1)';
+        scr.style.left=`-${WIN_IDX*CARD_W-(window.innerWidth/2-CARD_W/2)}px`;
+    }, 80);
+
+    // Phase 2: After spin — dramatic reveal
+    setTimeout(()=>{
+        // Flash the winner card
+        const winCard = scr.children[WIN_IDX];
+        if(winCard){
+            winCard.style.transition='transform .15s,box-shadow .15s';
+            winCard.style.transform='scale(1.15)';
+            winCard.style.boxShadow=`0 0 30px ${glow}, 0 0 60px ${glow}66`;
+        }
+        // Sparkle flash on modal
+        modal.style.background=`rgba(4,6,12,.97)`;
+        setTimeout(()=>{
+            modal.style.background='rgba(4,6,12,.97)';
+        },200);
+    }, 4700);
+
+    // Phase 3: Big reveal card
+    setTimeout(()=>{
+        // Hide roulette
+        const roulette = modal.querySelector('.case-roulette');
+        if(roulette){ roulette.style.transition='opacity .4s'; roulette.style.opacity='0'; }
+        title.style.transition='opacity .3s'; title.style.opacity='0';
+
+        setTimeout(()=>{
+            if(roulette) roulette.style.display='none';
+            title.style.display='none';
+
+            // Big card reveal with animation
+            const imgSrc = getPetImageSrc(win);
+            const hasPhoto = imgSrc.type === 'img';
+            const cardSize = 180;
+
+            resEl.innerHTML = `<div id="reveal-card" style="
+                opacity:0;transform:scale(0.3) rotate(-10deg);
+                transition:opacity .5s,transform .5s cubic-bezier(.175,.885,.32,1.5);
+                display:inline-block;
+            ">
+                <div style="
+                    width:${cardSize}px;height:${cardSize}px;
+                    background:${RARITY_BG[win.r]||'#1a1f2e'};
+                    border-radius:20px;border:3px solid ${glow};
+                    box-shadow:0 0 40px ${glow}88,0 0 80px ${glow}44;
+                    display:flex;align-items:center;justify-content:center;
+                    position:relative;overflow:hidden;margin:0 auto 12px;
+                ">
+                    ${hasPhoto
+                        ? `<img src="${imgSrc.src}" style="width:${Math.round(cardSize*.9)}px;height:${Math.round(cardSize*.9)}px;object-fit:contain">`
+                        : `<span style="font-size:${Math.round(cardSize*.5)}px">${imgSrc.src}</span>`
+                    }
+                </div>
+            </div>
+            <div id="reveal-info" style="opacity:0;transform:translateY(16px);transition:opacity .4s .3s,transform .4s .3s">
+                <div style="font-size:24px;font-weight:900;color:${glow};letter-spacing:.5px">${win.n}</div>
+                <div style="font-size:13px;color:#8d99ae;margin-top:4px">${win.r} · x${win.m.toFixed(3)}</div>
+                <div style="font-size:12px;color:var(--accent2);margin-top:6px;font-weight:700">+${win.n} в інвентар!</div>
+            </div>`;
+
+            // Animate in
+            requestAnimationFrame(()=>{
+                requestAnimationFrame(()=>{
+                    const card=document.getElementById('reveal-card');
+                    const info=document.getElementById('reveal-info');
+                    if(card){card.style.opacity='1';card.style.transform='scale(1) rotate(0deg)';}
+                    if(info){info.style.opacity='1';info.style.transform='translateY(0)';}
+                });
+            });
+
+            setTimeout(()=>{
+                closeEl.style.display='block';
+                closeEl.style.animation='toast-in .3s ease';
+                onComplete();
+            }, 700);
+        }, 400);
+    }, 5400);
+}
+
 function buyCase(k){
     const c=CASES[k];
     if(s.b<c.p)return alert('Мало BB!');
-    s.b-=c.p;save();
-    document.getElementById('case-modal').style.display='flex';
-    let rand=Math.random()*100,win,cur=0;
+    s.b-=c.p; save();
+
+    // Pick winner
+    let rand=Math.random()*100, win=null, cur=0;
     for(const p of c.drop){cur+=p.w;if(rand<=cur){win={...p};break;}}
-    const CARD_W=90,COUNT=55,WIN_IDX=40;
-    const pool=[];for(const key in CASES)pool.push(...CASES[key].drop);
-    const scr=document.getElementById('case-scroll');
-    scr.innerHTML='';scr.style.transition='none';scr.style.left='0px';
-    const items=[];for(let i=0;i<COUNT;i++)items.push(i===WIN_IDX?win:pool[Math.floor(Math.random()*pool.length)]);
-    items.forEach(pet=>{
-        const cv=document.createElement('canvas');cv.width=84;cv.height=104;
-        cv.style.cssText='display:block;margin:3px;border-radius:12px;flex-shrink:0';
-        scr.appendChild(cv);drawPetCard(cv,pet);
+    if(!win) win={...c.drop[c.drop.length-1]};
+
+    openCaseAnimation(win, ()=>{
+        win.id=Date.now(); win.lvl=1;
+        s.inv.push(win); save();
     });
-    setTimeout(()=>{scr.style.transition='5s cubic-bezier(0.05,0,0.1,1)';scr.style.left=`-${WIN_IDX*CARD_W-(window.innerWidth/2-CARD_W/2)}px`;},50);
-    const resEl=document.getElementById('case-res'),closeEl=document.getElementById('case-close');
-    setTimeout(()=>{
-        const bigCv=document.createElement('canvas');bigCv.width=160;bigCv.height=196;
-        bigCv.style.cssText='border-radius:16px;display:block;margin:0 auto 10px';
-        drawPetCard(bigCv,win);resEl.innerHTML='';resEl.appendChild(bigCv);
-        const label=document.createElement('div');
-        label.innerHTML=`<span style="color:${RARITY_GLOW[win.r]||'#fff'};font-size:20px;font-weight:900">${win.n}</span><br><small style="color:#8d99ae">${win.r} · x${win.m.toFixed(3)}</small>`;
-        resEl.appendChild(label);closeEl.style.display='block';
-        win.id=Date.now();win.lvl=1;s.inv.push(win);save();
-    },5600);
 }
 window.buyCase=buyCase;
-window.closeCase=()=>{document.getElementById('case-modal').style.display='none';document.getElementById('case-close').style.display='none';document.getElementById('case-res').innerText='';};
+window.closeCase=()=>{
+    const modal=document.getElementById('case-modal');
+    const title=document.getElementById('case-title');
+    const roulette=modal.querySelector('.case-roulette');
+    // Reset modal for next use
+    modal.style.display='none';
+    if(title){title.style.display='';title.style.opacity='1';}
+    if(roulette){roulette.style.display='';roulette.style.opacity='1';}
+    document.getElementById('case-close').style.display='none';
+    document.getElementById('case-res').innerHTML='';
+};
 
 // ============================================================
 // updUI + play
@@ -1270,9 +1472,19 @@ function endBJ(){document.getElementById('bj-ctrl').style.display='none';}
 // ============================================================
 function loadTop(){
     db.ref('players').once('value',snap=>{
-        let l=[];snap.forEach(c=>{const v=c.val();if(v.name)l.push(v);});l.sort((a,b)=>b.b-a.b);
+        let l=[];
+        snap.forEach(c=>{const v=c.val();if(v&&v.name)l.push(v);});
+        l.sort((a,b)=>b.b-a.b);
+        const medals=['🥇','🥈','🥉'];
         document.getElementById('leaderboard').innerHTML=l.slice(0,10).map((p,i)=>`
-            <div class="market-item"><span>${['🥇','🥈','🥉'][i]||`${i+1}.`} ${p.name}</span><b style="color:var(--accent)">${Math.floor(p.b)} BB</b></div>`).join('');
+            <div class="leader-item">
+                <div class="leader-rank">${medals[i]||`<span style="color:var(--muted);font-size:13px">${i+1}</span>`}</div>
+                <div>
+                    <div class="leader-name">${p.name}</div>
+                    <div style="font-size:10px;color:var(--muted)">${p.p?`${p.p.s||''} ${p.p.n}`:''}</div>
+                </div>
+                <div class="leader-bal">${Math.floor(p.b).toLocaleString()} BB</div>
+            </div>`).join('');
     });
 }
 
@@ -1282,45 +1494,358 @@ function loadTop(){
 window.setAdminTab=t=>{currentAdminTab=t;adminInvUserId=null;loadAdmin();};
 function loadAdmin(){
     if(currentAdminTab==='inv'&&adminInvUserId){loadAdminUserInv(adminInvUserId,adminInvUserName);return;}
+
+    const makeTabs=()=>`<div class="admin-tabs">
+        <div class="a-tab ${currentAdminTab==='stats'?'active':''}"  onclick="setAdminTab('stats')">📊 Стат</div>
+        <div class="a-tab ${currentAdminTab==='balance'?'active':''}" onclick="setAdminTab('balance')">💰 BB</div>
+        <div class="a-tab ${currentAdminTab==='inv'?'active':''}"    onclick="setAdminTab('inv')">🐾 Пети</div>
+        <div class="a-tab ${currentAdminTab==='promo'?'active':''}"  onclick="setAdminTab('promo')">🎟 Промо</div>
+    </div>`;
+
+    // ── ПРОМОКОДИ ──
+    if(currentAdminTab==='promo'){
+        db.ref('promo').once('value',snap=>{
+            const codes=snap.val()||{};
+            let codeRows='';
+            Object.entries(codes).forEach(([code,data])=>{
+                const used=data.used||0, max=data.maxUses||1;
+                const expired=used>=max;
+                codeRows+=`<div class="admin-card" style="padding:12px">
+                    <div style="display:flex;justify-content:space-between;align-items:center">
+                        <div>
+                            <div style="font-weight:800;font-size:15px;letter-spacing:1px;color:${expired?'var(--muted)':'var(--accent2)'}">${code}</div>
+                            <div style="font-size:11px;color:var(--muted);margin-top:3px">
+                                ${promoRewardLabel(data)} · ${used}/${max} активацій${expired?' · <span style="color:var(--error)">Вичерпано</span>':''}
+                            </div>
+                        </div>
+                        <button class="btn-ctrl b-sub" style="padding:7px 10px" onclick="adminDeletePromo('${code}')">🗑</button>
+                    </div>
+                </div>`;
+            });
+            document.getElementById('admin-list').innerHTML=makeTabs()+`
+            <div class="admin-card">
+                <div class="card-title">➕ Створити промокод</div>
+                <input type="text" id="promo-code-inp" placeholder="Код (напр. EASTER2026)" style="text-transform:uppercase;margin-bottom:8px" oninput="this.value=this.value.toUpperCase()">
+                <div style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.5px;margin-bottom:6px">ТИП НАГОРОДИ</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px">
+                    <button id="pt-bb"   class="btn-s promo-type-btn active-type" onclick="setPromoType('bb')">💰 BB</button>
+                    <button id="pt-pet"  class="btn-s promo-type-btn" onclick="setPromoType('pet')">🐾 Пет</button>
+                    <button id="pt-case" class="btn-s promo-type-btn" onclick="setPromoType('case')">📦 Кейс</button>
+                </div>
+                <div id="promo-bb-inp">
+                    <input type="number" id="promo-amount" placeholder="Кількість BB" style="margin-bottom:8px">
+                </div>
+                <div id="promo-pet-inp" style="display:none">
+                    <select id="promo-pet-sel" style="margin-bottom:8px">
+                        ${getAllPets().map((p,i)=>`<option value="${i}">${p.s||''} ${p.n} (${p.r})</option>`).join('')}
+                    </select>
+                </div>
+                <div id="promo-case-inp" style="display:none">
+                    <select id="promo-case-sel" style="margin-bottom:8px">
+                        ${Object.entries(CASES).map(([k,c])=>`<option value="${k}">${c.n} — ${c.p} BB</option>`).join('')}
+                    </select>
+                    <input type="number" id="promo-case-count" placeholder="Кількість кейсів" value="1" style="margin-bottom:8px">
+                </div>
+                <input type="number" id="promo-uses" placeholder="Макс. активацій (0 = необмежено)" style="margin-bottom:10px" value="1">
+                <button class="btn" onclick="adminCreatePromo()">✅ Створити промокод</button>
+            </div>
+            <div style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.5px;margin:14px 0 8px">АКТИВНІ ПРОМОКОДИ (${Object.keys(codes).length})</div>
+            ${codeRows||`<div style="text-align:center;color:var(--muted);padding:20px;font-size:13px">Немає промокодів</div>`}`;
+        });
+        return;
+    }
+
+    // ── СТАТИСТИКА ──
     db.ref('players').once('value',snap=>{
-        let tabs=`<div class="admin-tabs">
-            <div class="a-tab ${currentAdminTab==='balance'?'active':''}" onclick="setAdminTab('balance')">💰 ${L('adminBalance')}</div>
-            <div class="a-tab ${currentAdminTab==='pets'?'active':''}" onclick="setAdminTab('pets')">🐾 ${L('adminPets')}</div>
-            <div class="a-tab ${currentAdminTab==='inv'?'active':''}" onclick="setAdminTab('inv')">🎒 ${L('adminInv')}</div>
-        </div>`;
-        let h=tabs;
-        snap.forEach(c=>{
-            const p=c.val(),uid=c.key;
-            h+=`<div class="admin-card"><b>${p.name||L('anon')}</b> <small style="color:#8d99ae">${(p.b||0).toFixed(2)} BB</small>`;
-            if(currentAdminTab==='balance'){h+=`<div class="admin-ctrl-grid"><button class="btn-ctrl b-add" onclick="mathB('${uid}','add')">+ ${L('adminBalance')}</button><button class="btn-ctrl b-sub" onclick="mathB('${uid}','sub')">−</button><button class="btn-ctrl b-set" onclick="mathB('${uid}','set')">Set</button></div>`;}
-            else if(currentAdminTab==='pets'){h+=`<button class="btn" style="padding:8px;font-size:12px;margin-top:8px;background:#8b5cf6" onclick="adminGivePet('${uid}')">🎁 ${L('adminPets')}</button>`;}
-            else{h+=`<br><small style="color:#8d99ae">${L('petsCount')} ${(p.inv||[]).length}</small><button class="btn" style="padding:8px;font-size:12px;margin-top:8px;background:#1c4a8a" onclick="openAdminInv('${uid}','${(p.name||L('anon')).replace(/'/g,"\\'")}')"> ${L('viewInv')}</button>`;}
+        const players=[];
+        snap.forEach(c=>{const v=c.val();if(v)players.push({uid:c.key,...v});});
+
+        if(currentAdminTab==='stats'){
+            const totalBB=players.reduce((a,p)=>a+(p.b||0),0);
+            const totalPets=players.reduce((a,p)=>a+(p.inv?p.inv.length:0),0);
+            const avgBB=players.length?(totalBB/players.length).toFixed(0):0;
+            const richest=players.reduce((a,b)=>(b.b||0)>(a.b||0)?b:a,{b:0,name:'—'});
+            const mostPets=players.reduce((a,b)=>((b.inv||[]).length>((a.inv||[]).length))?b:a,{inv:[],name:'—'});
+            const rarityCount={};
+            players.forEach(p=>(p.inv||[]).forEach(pet=>{rarityCount[pet.r]=(rarityCount[pet.r]||0)+1;}));
+            document.getElementById('admin-list').innerHTML=makeTabs()+`
+            <div class="stat-grid">
+                <div class="stat-card"><div class="stat-val">${players.length}</div><div class="stat-lbl">Гравців</div></div>
+                <div class="stat-card"><div class="stat-val">${Math.floor(totalBB).toLocaleString()}</div><div class="stat-lbl">BB у грі</div></div>
+                <div class="stat-card"><div class="stat-val">${totalPets}</div><div class="stat-lbl">Петів всього</div></div>
+                <div class="stat-card"><div class="stat-val">${avgBB}</div><div class="stat-lbl">BB на гравця</div></div>
+            </div>
+            <div class="admin-card">
+                <div class="card-title">🏆 Лідери</div>
+                <div style="font-size:13px;margin-bottom:6px">💰 <b style="color:var(--accent2)">${richest.name}</b> — ${Math.floor(richest.b||0)} BB</div>
+                <div style="font-size:13px">🐾 <b style="color:var(--accent2)">${mostPets.name}</b> — ${(mostPets.inv||[]).length} петів</div>
+            </div>
+            <div class="admin-card">
+                <div class="card-title">🐾 Розподіл по рідкості</div>
+                ${Object.entries(rarityCount).sort((a,b)=>b[1]-a[1]).map(([r,n])=>`
+                    <div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.05)">
+                        <span style="color:${RARITY_GLOW[r]||'#fff'}">${r}</span>
+                        <b style="color:var(--accent2)">${n}</b>
+                    </div>`).join('')}
+            </div>`;
+            return;
+        }
+
+        // ── BB / ПЕТИ+ІНВ ──
+        let h=makeTabs();
+        players.forEach(({uid,name,b,inv,p:activePet})=>{
+            b=b||0; inv=inv||[];
+            h+=`<div class="admin-card">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                    <div>
+                        <b style="font-size:14px">${name||L('anon')}</b>
+                        ${activePet?`<span style="font-size:11px;color:var(--muted);margin-left:6px">${activePet.s||''}</span>`:''}
+                    </div>
+                    <span style="color:var(--accent2);font-weight:700;font-size:14px">${b.toFixed(0)} BB</span>
+                </div>`;
+            if(currentAdminTab==='balance'){
+                h+=`<div class="admin-ctrl-grid">
+                    <button class="btn-ctrl b-add" onclick="mathB('${uid}','add')">＋ Додати</button>
+                    <button class="btn-ctrl b-sub" onclick="mathB('${uid}','sub')">－ Забрати</button>
+                    <button class="btn-ctrl b-set" onclick="mathB('${uid}','set')">Задати</button>
+                </div>`;
+            } else {
+                // Пети + інвентар в одній вкладці
+                h+=`<div style="display:flex;gap:6px;margin-top:6px">
+                    <button class="btn-buy" style="flex:1" onclick="adminGivePetModal('${uid}','${(name||'').replace(/'/g,"\\'")}')">🎁 Подарувати</button>
+                    <button class="btn-ghost" style="flex:1;font-size:12px" onclick="openAdminInv('${uid}','${(name||'').replace(/'/g,"\\'")}')">🎒 Інвентар (${inv.length})</button>
+                </div>`;
+            }
             h+=`</div>`;
         });
         document.getElementById('admin-list').innerHTML=h;
     });
 }
-window.openAdminInv=(uid,name)=>{adminInvUserId=uid;adminInvUserName=name;loadAdminUserInv(uid,name);};
+// ── Хелпери промокодів ──
+function getAllPets(){
+    let all=[],seen=new Set();
+    for(const k in CASES) CASES[k].drop.forEach(p=>{if(!seen.has(p.n)){all.push(p);seen.add(p.n);}});
+    ADMIN_ONLY_PETS.forEach(p=>{if(!seen.has(p.n)){all.push(p);seen.add(p.n);}});
+    return all;
+}
+function promoRewardLabel(d){
+    if(d.type==='bb')   return `💰 ${d.amount} BB`;
+    if(d.type==='pet')  return `🐾 ${d.pet?.s||''} ${d.pet?.n||'пет'}`;
+    if(d.type==='case') return `📦 ${d.count||1}x ${CASES[d.caseKey]?.n||d.caseKey}`;
+    return '?';
+}
+let currentPromoType='bb';
+window.setPromoType=t=>{
+    currentPromoType=t;
+    ['bb','pet','case'].forEach(tp=>{
+        const el=document.getElementById('promo-'+tp+'-inp');
+        if(el) el.style.display=t===tp?'block':'none';
+    });
+    document.querySelectorAll('.promo-type-btn').forEach(b=>b.classList.remove('active-type'));
+    const btn=document.getElementById('pt-'+t);
+    if(btn) btn.classList.add('active-type');
+};
+window.adminCreatePromo=()=>{
+    const code=(document.getElementById('promo-code-inp').value||'').trim().toUpperCase().replace(/\s+/g,'');
+    if(!code) return alert('Введи код!');
+    const uses=parseInt(document.getElementById('promo-uses').value)||1;
+    let reward={};
+    if(currentPromoType==='bb'){
+        const amt=parseFloat(document.getElementById('promo-amount').value);
+        if(!amt||amt<=0) return alert('Введи кількість BB!');
+        reward={type:'bb',amount:amt};
+    } else if(currentPromoType==='pet'){
+        const idx=parseInt(document.getElementById('promo-pet-sel').value);
+        const pets=getAllPets();
+        if(!pets[idx]) return alert('Обери пета!');
+        reward={type:'pet',pet:{...pets[idx],id:Date.now(),lvl:1}};
+    } else if(currentPromoType==='case'){
+        const caseKey=document.getElementById('promo-case-sel').value;
+        const count=parseInt(document.getElementById('promo-case-count').value)||1;
+        if(!CASES[caseKey]) return alert('Обери кейс!');
+        reward={type:'case',caseKey,count};
+    }
+    db.ref('promo/'+code).set({...reward,maxUses:uses||999999,used:0,createdAt:Date.now()}).then(()=>{
+        showToast(`✅ Промокод ${code} створено!`);
+        loadAdmin();
+    });
+};
+window.adminDeletePromo=code=>{
+    if(!confirm(`Видалити промокод ${code}?`)) return;
+    db.ref('promo/'+code).remove().then(()=>{showToast('🗑 Видалено');loadAdmin();});
+};
+window.adminGivePetModal=(uid,name)=>{
+    const pets=getAllPets();
+    const list=pets.map((p,i)=>`${i}: ${p.s||''} ${p.n} (${p.r})`).join('\n');
+    const ch=prompt(list);
+    if(ch===null||!pets[ch]) return;
+    const p={...pets[ch],id:Date.now(),lvl:1};
+    db.ref('players/'+uid+'/inv').once('value',sn=>{
+        const inv=sn.val()||[]; inv.push(p);
+        db.ref('players/'+uid+'/inv').set(inv);
+        showToast(`✅ ${p.s||''} ${p.n} → ${name}`);
+    });
+};
+
+// ── Застосувати промокод (гравець) ──
+window.applyPromo=()=>{
+    const code=(document.getElementById('promo-inp').value||'').trim().toUpperCase();
+    if(!code) return;
+    const btn=document.querySelector('[onclick="applyPromo()"]');
+    if(btn) btn.disabled=true;
+    db.ref('promo/'+code).once('value',snap=>{
+        if(btn) btn.disabled=false;
+        const data=snap.val();
+        if(!data){showToast('❌ Промокод не знайдено');return;}
+        const used=data.used||0, max=data.maxUses||1;
+        if(used>=max){showToast('❌ Промокод вичерпано');return;}
+        const usedBy=data.usedBy||[];
+        if(usedBy.includes(String(myId))){showToast('❌ Ти вже використав цей промокод');return;}
+        // Застосовуємо нагороду
+        db.ref('promo/'+code+'/used').set(used+1);
+        db.ref('promo/'+code+'/usedBy').set([...usedBy,String(myId)]);
+        if(data.type==='bb'){
+            s.b+=data.amount; save(); ren();
+            showToast(`🎉 +${data.amount} BB! Промокод активовано`);
+        } else if(data.type==='pet'&&data.pet){
+            const pet={...data.pet,id:Date.now(),lvl:1};
+            s.inv.push(pet); save();
+            showToast(`🎉 ${pet.s||''} ${pet.n} отримано!`);
+        } else if(data.type==='case'&&data.caseKey){
+            const c=CASES[data.caseKey];
+            if(!c){showToast('❌ Кейс більше не доступний');return;}
+            const count=data.count||1;
+            document.getElementById('promo-inp').value='';
+            // Відкриваємо кейси з анімацією по одному
+            let opened=0;
+            function openNext(){
+                if(opened>=count){
+                    renderSettings();
+                    showToast(`🎉 ${count}x ${c.n} відкрито!`);
+                    return;
+                }
+                let rand=Math.random()*100,win=null,cur=0;
+                for(const p of c.drop){cur+=p.w;if(rand<=cur){win={...p};break;}}
+                if(!win) win={...c.drop[c.drop.length-1]};
+                opened++;
+                openCaseAnimation(win,()=>{
+                    win.id=Date.now()+opened; win.lvl=1;
+                    s.inv.push(win); save();
+                    // After close button click — if more cases, open next
+                    const origClose=window.closeCase;
+                    if(opened<count){
+                        window.closeCase=()=>{
+                            origClose();
+                            window.closeCase=origClose;
+                            setTimeout(openNext,300);
+                        };
+                    }
+                });
+            }
+            openNext();
+        }
+        document.getElementById('promo-inp').value='';
+        renderSettings();
+    });
+};
+window.openAdminInv=(uid,name)=>{adminInvUserId=uid;adminInvUserName=name;currentAdminTab='inv';loadAdminUserInv(uid,name);};
 function loadAdminUserInv(uid,name){
     db.ref('players/'+uid).once('value',snap=>{
-        const p=snap.val(),inv=(p&&p.inv)?p.inv:[];
-        let h=`<div class="admin-tabs"><div class="a-tab" onclick="setAdminTab('balance')">💰</div><div class="a-tab" onclick="setAdminTab('pets')">🐾</div><div class="a-tab active">🎒</div></div>
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-            <button class="btn-s" onclick="adminInvUserId=null;loadAdmin()" style="font-size:15px;padding:8px 14px">${L('back')}</button>
-            <div><b>${name}</b> <small style="color:#8d99ae">(${inv.length} ${L('petsOf')})</small></div>
+        const p=snap.val()||{},inv=p.inv||[];
+        const tabs=`<div class="admin-tabs">
+            <div class="a-tab" onclick="setAdminTab('stats')">📊</div>
+            <div class="a-tab" onclick="setAdminTab('balance')">💰</div>
+            <div class="a-tab active">🐾</div>
+            <div class="a-tab" onclick="setAdminTab('promo')">🎟</div>
         </div>`;
-        if(!inv.length){h+=`<div class="admin-card" style="text-align:center;color:#8d99ae;padding:20px">${L('empty')}</div>`;}
-        else{inv.forEach((pet,idx)=>{const eq=p.p&&p.p.id===pet.id;h+=`<div class="admin-card" style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div style="display:flex;align-items:center;gap:10px"><span style="font-size:28px">${pet.s}</span><div><div style="font-weight:bold">${pet.n}${eq?` <span style="font-size:10px;background:var(--success);padding:1px 5px;border-radius:4px">${L('activePet')}</span>`:''}</div><div style="font-size:11px;color:${pet.c}">${pet.r} · x${pet.m.toFixed(3)} · LVL ${pet.lvl||1}</div></div></div><button class="btn-ctrl b-sub" onclick="adminRemovePet('${uid}',${idx},'${name}')">🗑</button></div>`;});}
+        let h=tabs+`<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+            <button class="btn-s" onclick="adminInvUserId=null;loadAdmin()" style="padding:8px 14px;font-size:14px">${L('back')}</button>
+            <div><b>${name}</b> <span style="color:var(--muted);font-size:12px">${inv.length} ${L('petsOf')}</span></div>
+        </div>`;
+        if(!inv.length){
+            h+=`<div class="admin-card" style="text-align:center;color:var(--muted);padding:20px">${L('empty')}</div>`;
+        } else {
+            inv.forEach((pet,idx)=>{
+                const eq=p.p&&p.p.id===pet.id;
+                const imgSrc=getPetImageSrc(pet);
+                const icon = imgSrc.type==='img'
+                    ? `<img src="${imgSrc.src}" width="36" height="36" style="object-fit:contain;border-radius:8px">`
+                    : `<span style="font-size:26px">${pet.s}</span>`;
+                h+=`<div class="admin-card" style="padding:12px">
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+                        ${icon}
+                        <div style="flex:1">
+                            <div style="font-weight:700;font-size:13px">${pet.n}${eq?` <span style="font-size:10px;background:rgba(16,185,129,.2);color:var(--success);padding:1px 5px;border-radius:4px">Активний</span>`:''}</div>
+                            <div style="font-size:11px;color:${pet.c}">${pet.r} · x${pet.m.toFixed(3)} · LVL ${pet.lvl||1}</div>
+                        </div>
+                        <button class="btn-ctrl b-sub" style="padding:8px 10px;font-size:16px" onclick="adminRemovePet('${uid}',${idx},'${name.replace(/'/g,"\\'")}')">🗑</button>
+                    </div>
+                    <div class="admin-ctrl-grid" style="grid-template-columns:1fr 1fr 1fr 1fr;gap:6px">
+                        <button class="btn-ctrl" style="background:#6366f1;font-size:10px" onclick="adminSetPetLevel('${uid}',${idx},'${name.replace(/'/g,"\\'")}')">✏️ Рівень</button>
+                        <button class="btn-ctrl b-add" style="font-size:10px" onclick="adminAddPetLevel('${uid}',${idx},1)">LVL +1</button>
+                        <button class="btn-ctrl b-sub" style="font-size:10px" onclick="adminAddPetLevel('${uid}',${idx},-1)">LVL -1</button>
+                        <button class="btn-ctrl" style="background:#374151;font-size:10px" onclick="adminResetXP('${uid}')">🔄 XP</button>
+                    </div>
+                </div>`;
+            });
+        }
         document.getElementById('admin-list').innerHTML=h;
     });
 }
 window.adminRemovePet=(uid,idx,name)=>{
     db.ref('players/'+uid).once('value',snap=>{
-        const p=snap.val();let inv=p.inv?[...p.inv]:[];const pet=inv[idx];
-        if(!pet)return alert('Не знайдено!');
-        if(!confirm(`${L('confirmDelete')} ${pet.s} ${pet.n}?`))return;
-        if(p.p&&p.p.id===pet.id)db.ref('players/'+uid+'/p').set(null);
-        inv.splice(idx,1);db.ref('players/'+uid+'/inv').set(inv).then(()=>loadAdminUserInv(uid,name));
+        const p=snap.val(); let inv=p.inv?[...p.inv]:[];
+        const pet=inv[idx];
+        if(!pet) return alert('Не знайдено!');
+        if(!confirm(`${L('confirmDelete')} ${pet.n}?`)) return;
+        // Якщо це активний пет — знімаємо
+        if(p.p&&p.p.id===pet.id) db.ref('players/'+uid+'/p').set(null);
+        inv.splice(idx,1);
+        db.ref('players/'+uid+'/inv').set(inv).then(()=>loadAdminUserInv(uid,name));
+    });
+};
+window.adminSetPetLevel=(uid,idx,name)=>{
+    const newLvlStr=prompt('Новий рівень (1-100):');
+    if(!newLvlStr||isNaN(newLvlStr)) return;
+    const newLvl=Math.max(1,Math.min(100,parseInt(newLvlStr)));
+    db.ref('players/'+uid).once('value',snap=>{
+        const p=snap.val(); const inv=[...(p.inv||[])];
+        if(!inv[idx]) return;
+        const pet=inv[idx];
+        const oldLvl=pet.lvl||1;
+        // Перераховуємо м від базового значення рідкості + (newLvl-1)*0.005
+        // Базовий множник — те що було на LVL1
+        const baseMult = Math.round((pet.m - (oldLvl-1)*0.005)*1000)/1000;
+        pet.lvl = newLvl;
+        pet.m   = Math.round((baseMult + (newLvl-1)*0.005)*1000)/1000;
+        if(pet.m < 1) pet.m = 1;
+        // Скидаємо XP гравця до 0 при зміні рівня
+        db.ref('players/'+uid+'/x').set(0);
+        db.ref('players/'+uid+'/inv').set(inv);
+        if(p.p&&p.p.id===pet.id) db.ref('players/'+uid+'/p').set(pet);
+        showToast(`✅ ${pet.n}: LVL ${newLvl}, x${pet.m.toFixed(3)}`);
+        setTimeout(()=>loadAdminUserInv(uid,name),400);
+    });
+};
+window.adminResetXP=(uid)=>{
+    if(!confirm('Скинути XP до 0?')) return;
+    db.ref('players/'+uid+'/x').set(0);
+    showToast('✅ XP скинуто');
+};
+window.adminAddPetLevel=(uid,idx,delta)=>{
+    db.ref('players/'+uid).once('value',snap=>{
+        const p=snap.val(); const inv=[...(p.inv||[])];
+        if(!inv[idx]) return;
+        const pet=inv[idx];
+        const oldLvl=pet.lvl||1;
+        const newLvl=Math.max(1,oldLvl+delta);
+        const baseMult=Math.round((pet.m-(oldLvl-1)*0.005)*1000)/1000;
+        pet.lvl=newLvl;
+        pet.m=Math.round((baseMult+(newLvl-1)*0.005)*1000)/1000;
+        if(pet.m<1) pet.m=1;
+        db.ref('players/'+uid+'/inv').set(inv);
+        if(p.p&&p.p.id===pet.id) db.ref('players/'+uid+'/p').set(pet);
+        setTimeout(()=>loadAdminUserInv(uid,p.name||name),300);
     });
 };
 window.mathB=(id,type)=>{
@@ -1328,18 +1853,8 @@ window.mathB=(id,type)=>{
     if(type==='add')ref.transaction(c=>(c||0)+v);else if(type==='sub')ref.transaction(c=>(c||0)-v);else ref.set(v);
     setTimeout(loadAdmin,500);
 };
-window.adminGivePet=tid=>{
-    let unique=[],seen=new Set();
-    for(const k in CASES)CASES[k].drop.forEach(p=>{if(!seen.has(p.n)){unique.push(p);seen.add(p.n);}});
-    ADMIN_ONLY_PETS.forEach(p=>{if(!seen.has(p.n)){unique.push(p);seen.add(p.n);}});
-    const list=unique.map((p,i)=>`${i}: ${p.s} ${p.n} (${p.r})`).join('\n');
-    const ch=prompt(list);
-    if(ch!==null&&unique[ch]){
-        const p={...unique[ch],id:Date.now(),lvl:1};
-        db.ref('players/'+tid+'/inv').once('value',sn=>{const inv=sn.val()||[];inv.push(p);db.ref('players/'+tid+'/inv').set(inv);});
-        alert(`${L('given')} ${unique[ch].s} ${unique[ch].n}`);
-    }
-};
+// adminGivePet — alias для зворотньої сумісності
+window.adminGivePet=uid=>window.adminGivePetModal(uid,'');
 
 // ============================================================
 // НАЛАШТУВАННЯ
@@ -1354,13 +1869,44 @@ function renderSettings(){
         <div class="sett-card${currentLang===k?' sett-active':''}" onclick="pickLang('${k}')">
             <span>${n}</span>${currentLang===k?'<span style="color:var(--accent)">✓</span>':''}
         </div>`).join('');
+    const musicTracksHtml = (() => {
+        if (typeof MUSIC_TRACKS === 'undefined') return '<div style="color:var(--muted);font-size:12px">music.js не завантажено</div>';
+        const tracks = Object.entries(MUSIC_TRACKS);
+        const offCard = `<div class="sett-card${currentTrack===null?' sett-active':''}" onclick="pickTrack(null)">
+            <span>🔇 Без звуку</span>
+            ${currentTrack===null?'<span style="color:var(--accent)">✓</span>':''}
+        </div>`;
+        const trackCards = tracks.map(([k,t])=>`
+            <div class="sett-card${currentTrack===k?' sett-active':''}" onclick="pickTrack('${k}')">
+                <span>🎵 ${t.title}</span>
+                <div style="display:flex;align-items:center;gap:6px">
+                    ${currentTrack===k && musicEnabled ? '<span style="color:var(--accent);font-size:16px;animation:xp-shine 1s infinite">▶</span>' : ''}
+                    ${currentTrack===k?'<span style="color:var(--accent)">✓</span>':''}
+                </div>
+            </div>`).join('');
+        return offCard + trackCards;
+    })();
+
     el.innerHTML=`
         <div class="glass"><div class="sett-section-title">${L('theme')}</div><div class="sett-grid">${themeHtml}</div></div>
         <div class="glass"><div class="sett-section-title">${L('lang')}</div><div class="sett-list">${langHtml}</div></div>
-        <div class="glass"><div class="sett-section-title">${L('music')}</div>
-            <div class="sett-card${musicEnabled?' sett-active':''}" onclick="toggleMusic()">
-                <span>${musicEnabled?L('musicOn'):L('musicOff')}</span>
-                <div style="font-size:22px">${musicEnabled?'🔊':'🔇'}</div>
+        <div class="glass">
+            <div class="sett-section-title">${L('music')}</div>
+            <div style="display:flex;gap:8px;margin-bottom:10px">
+                <button class="btn-s" style="flex:1;background:${musicEnabled?'rgba(232,121,160,.15)':'rgba(255,255,255,.04)'};border-color:${musicEnabled?'var(--accent)':'rgba(255,255,255,.12)'};color:${musicEnabled?'var(--accent)':'var(--muted)'}" onclick="toggleMusic()">
+                    ${musicEnabled?'🔊 Увімк.':'🔇 Вимк.'}
+                </button>
+                <div style="flex:2;display:flex;align-items:center;font-size:12px;color:var(--muted);padding:0 8px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:8px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">
+                    ${currentTrack && typeof MUSIC_TRACKS!=='undefined' && MUSIC_TRACKS[currentTrack] ? '🎵 ' + MUSIC_TRACKS[currentTrack].title : '🔇 Без звуку'}
+                </div>
+            </div>
+            <div class="sett-list">${musicTracksHtml}</div>
+        </div>
+        <div class="glass">
+            <div class="sett-section-title">🎟 ПРОМОКОД</div>
+            <div style="display:flex;gap:8px">
+                <input type="text" id="promo-inp" placeholder="Введи промокод..." style="flex:1;margin:0;text-transform:uppercase;letter-spacing:1px" oninput="this.value=this.value.toUpperCase()">
+                <button class="btn-buy" style="padding:12px 16px;font-size:14px;flex-shrink:0" onclick="applyPromo()">▶</button>
             </div>
         </div>`;
 }
@@ -1368,21 +1914,71 @@ window.pickTheme=k=>{applyTheme(k);renderSettings();showToast(L('saved'));};
 window.pickLang=k=>{applyLang(k);renderSettings();showToast(L('saved'));};
 
 // ============================================================
-// МУЗИКА
+// МУЗИКА — мультитрек плеєр
 // ============================================================
-const MUSIC_URL=typeof MUSIC_B64!=='undefined'?MUSIC_B64:'';
-let musicEnabled=localStorage.getItem('bc_music')!=='false';
-let bgAudio=null;
-function initMusic(){
-    if(!MUSIC_URL)return;
-    if(!bgAudio){bgAudio=new Audio(MUSIC_URL);bgAudio.loop=true;bgAudio.volume=0.35;}
-    if(musicEnabled){bgAudio.play().catch(()=>{document.addEventListener('click',()=>{if(musicEnabled&&bgAudio.paused)bgAudio.play();},{once:true});});}
+let currentTrack  = localStorage.getItem('bc_track') || 'bubblegum';
+let musicEnabled  = localStorage.getItem('bc_music') !== 'false';
+let bgAudio       = null;
+
+function getMusicSrc(key) {
+    if (!key) return null;
+    if (typeof MUSIC_TRACKS !== 'undefined' && MUSIC_TRACKS[key]) return MUSIC_TRACKS[key].src;
+    // Fallback: стара MUSIC_B64
+    if (typeof MUSIC_B64 !== 'undefined' && key === 'bubblegum') return MUSIC_B64;
+    return null;
 }
-window.toggleMusic=()=>{
-    musicEnabled=!musicEnabled;localStorage.setItem('bc_music',musicEnabled);
-    if(musicEnabled){if(!bgAudio)initMusic();else bgAudio.play().catch(()=>{});}
-    else{if(bgAudio)bgAudio.pause();}
-    renderSettings();showToast(musicEnabled?L('musicOn'):L('musicOff'));
+
+function initMusic() {
+    if (!musicEnabled || !currentTrack) return;
+    const src = getMusicSrc(currentTrack);
+    if (!src) return;
+    if (!bgAudio) {
+        bgAudio = new Audio(src);
+        bgAudio.loop   = true;
+        bgAudio.volume = 0.35;
+    } else if (bgAudio.src !== src) {
+        bgAudio.pause();
+        bgAudio = new Audio(src);
+        bgAudio.loop   = true;
+        bgAudio.volume = 0.35;
+    }
+    bgAudio.play().catch(() => {
+        document.addEventListener('click', () => {
+            if (musicEnabled && bgAudio && bgAudio.paused) bgAudio.play();
+        }, { once: true });
+    });
+}
+
+window.pickTrack = key => {
+    currentTrack = key;
+    localStorage.setItem('bc_track', key || '');
+    if (bgAudio) { bgAudio.pause(); bgAudio = null; }
+    if (key && musicEnabled) {
+        musicEnabled = true;
+        localStorage.setItem('bc_music', 'true');
+        initMusic();
+    } else if (!key) {
+        // Вимкнути звук
+        musicEnabled = false;
+        localStorage.setItem('bc_music', 'false');
+    }
+    renderSettings();
+    if (key && typeof MUSIC_TRACKS !== 'undefined' && MUSIC_TRACKS[key]) {
+        showToast(`🎵 ${MUSIC_TRACKS[key].title}`);
+    }
+};
+
+window.toggleMusic = () => {
+    musicEnabled = !musicEnabled;
+    localStorage.setItem('bc_music', musicEnabled);
+    if (musicEnabled) {
+        if (!bgAudio) initMusic();
+        else bgAudio.play().catch(()=>{});
+    } else {
+        if (bgAudio) bgAudio.pause();
+    }
+    renderSettings();
+    showToast(musicEnabled ? L('musicOn') : L('musicOff'));
 };
 
 // ============================================================
