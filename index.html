@@ -4,13 +4,27 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
   <title>BEARS CASINO 🐣</title>
-  <link rel="stylesheet" href="style.css?v=8.0">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&display=swap">
+  <link rel="stylesheet" href="style.css?v=10.0">
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
-<canvas id="easter-bg"></canvas>
+
+<!-- SPLASH SCREEN -->
+<div id="splash-screen">
+  <div id="splash-img-wrap">
+    <img id="splash-img" src="splash.png" alt="Bears Casino">
+  </div>
+  <div id="splash-bottom">
+    <div id="splash-bar-wrap">
+      <div id="splash-bar"></div>
+    </div>
+    <div id="splash-text">Завантаження...</div>
+  </div>
+</div>
 
 <header>
   <div class="logo">BEARS CASINO</div>
@@ -47,14 +61,10 @@
       <select id="g-sel" onchange="updUI()">
         <option value="f50">⚖️ 50/50 (x1.55)</option>
         <option value="dice">🎲 Кубик (x2.05)</option>
-        <option value="wheel">🎡 Колесо (до x1.6)</option>
+        <option value="wheel">🎡 Колесо (до x1.8)</option>
         <option value="slots">🎰 Слоти (до x5.0)</option>
         <option value="mines">💣 Міни (до x4.0)</option>
-        <option value="clown">🐰 Двері Великодня</option>
-        <option value="balloon">🥚 Яйце Удачі</option>
         <option value="bj">🃏 Блекджек (x2.0)</option>
-        <option value="pvp">⚔️ Бій Крашанками</option>
-        <option value="plinko">🥚 Кошик Удачі</option>
       </select>
 
       <div id="ui-dice"    style="display:none;margin:14px 0"></div>
@@ -67,7 +77,7 @@
           <span style="color:#ef4444">🔴 0x 50%</span>
           <span style="color:#10b981">🟢 1.4x 25%</span>
           <span style="color:#3b82f6">🔵 1.6x 20%</span>
-          <span style="color:#f59e0b">🟡 🍯🐻 5%</span>
+          <span style="color:#f59e0b">🟡 1.8x 5%</span>
         </div>
       </div>
       <div id="ui-slots" style="display:none;text-align:center;padding:12px 0">
@@ -91,10 +101,6 @@
           <button class="btn" style="background:linear-gradient(135deg,var(--success),#059669)" onclick="minesCashout()">💰 ЗАБРАТИ · x<span id="mines-curr-mult">1.00</span></button>
         </div>
       </div>
-      <div id="ui-clown"   style="display:none;padding:8px 0"></div>
-      <div id="ui-balloon" style="display:none;padding:8px 0"></div>
-      <div id="ui-pvp"     style="display:none;padding:8px 0"></div>
-      <div id="ui-plinko"  style="display:none;padding:8px 0"></div>
       <div id="ui-bj" style="display:none;text-align:center;padding:12px 0">
         <div id="bj-dealer-lbl" style="font-size:10px;color:var(--muted);margin-bottom:6px;font-weight:700;text-transform:uppercase;letter-spacing:.5px">ДИЛЕР</div>
         <div id="bj-dc" style="display:flex;justify-content:center;gap:8px;margin-bottom:14px;flex-wrap:wrap"></div>
@@ -186,7 +192,7 @@
 </nav>
 
 <script src="petimages.js"></script>
-<script src="music.js"></script>
-<script src="script.js?v=8.0"></script>
+<script>window.addEventListener("load",()=>{const s=document.createElement("script");s.src="music.js";document.head.appendChild(s);})</script>
+<script src="script.js?v=10.0"></script>
 </body>
 </html>
