@@ -735,9 +735,27 @@ let adminInvUserId=null,adminInvUserName='';
 
 // FIREBASE SYNC
 let _splashFired = false;
+let _saving = false;
+let _saveTimer = null;
+function save(){
+    _saving = true;
+    clearTimeout(_saveTimer);
+    _saveTimer = setTimeout(()=>{ _saving = false; }, 2000);
+    db.ref('players/'+myId).set(s);
+}
+
 db.ref('players/'+myId).on('value',snap=>{
     const d=snap.val();
     if(d){
+        // Якщо щойно зберігали — не перезаписуємо локальний стан
+        // щоб Firebase не відкотив зміни балансу назад
+        if(_saving){
+            // Оновлюємо тільки те що не може змінитись локально
+            // (наприклад дані від інших гравців — але для поточного гравця пропускаємо)
+            ren();
+            if(!_splashFired){ _splashFired=true; if(window._splashDone) window._splashDone(); }
+            return;
+        }
         // Зберігаємо локальні дані що можуть бути новіші ніж у Firebase
         const curDaily = s.daily;
         const curAdoptPurchases = s.adoptPurchases;
@@ -759,7 +777,6 @@ db.ref('players/'+myId).on('value',snap=>{
     ren();
     if(!_splashFired){ _splashFired=true; if(window._splashDone) window._splashDone(); }
 });
-function save(){db.ref('players/'+myId).set(s);}
 
 // ============================================================
 // XP / LEVELUP
