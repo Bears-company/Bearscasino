@@ -1269,7 +1269,7 @@ window.minesReveal=idx=>{
     if(cell.mine){
         minesState.alive=false;minesState.cells.forEach(c=>{if(c.mine)c.revealed=true;});buildMinesGrid();
         document.getElementById('mines-ctrl').style.display='none';
-        const bt=minesState.bet;s.b-=bt;save();
+        const bt=minesState.bet;s.b-=bt;save();ren();
         setTimeout(()=>{document.getElementById('g-stat').innerHTML=`<span style="color:var(--error)">-${bt.toFixed(2)} BB 💣</span><br><small>${L('minesBoom')}</small>`;minesState=null;buildMinesGrid();},600);
     } else {
         minesState.opened++;const mult=calcMinesMult(minesState.opened,minesState.mineCount);
@@ -1280,7 +1280,7 @@ window.minesReveal=idx=>{
 window.minesCashout=()=>{
     if(!minesState||!minesState.alive||minesState.opened===0)return;
     const bt=minesState.bet,mult=minesState.currentMult,win=(bt*mult-bt)*(s.p?s.p.m:1);
-    s.b+=win;s.x+=Math.floor(bt/2);save();checkPetLevelUp();
+    s.b+=win;s.x+=Math.floor(bt/2);save();ren();checkPetLevelUp();
     document.getElementById('g-stat').innerHTML=`<span style="color:var(--success)">+${win.toFixed(2)} BB</span><br><small>Забрав x${mult.toFixed(2)} 💰</small>`;
     minesState.alive=false;minesState.cells.forEach(c=>c.revealed=true);buildMinesGrid();
     document.getElementById('mines-ctrl').style.display='none';minesState=null;
@@ -1504,6 +1504,7 @@ function res(win,bt,m,msg){
     if(win){const w=(bt*m-bt)*bon;s.b+=w;s.x+=Math.floor(bt/2);document.getElementById('g-stat').innerHTML=`<span style="color:var(--success)">+${w.toFixed(2)} BB</span><br><small>${msg}</small>`;checkPetLevelUp();dailyProgress('win');dailyProgress('play');}
     else{s.b-=bt;document.getElementById('g-stat').innerHTML=`<span style="color:var(--error)">-${bt.toFixed(2)} BB</span><br><small>${msg}</small>`;dailyProgress('lose');dailyProgress('play');}
     save();
+    ren();
 }
 
 // ============================================================
