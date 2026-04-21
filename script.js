@@ -345,6 +345,220 @@ const ADMIN_ONLY_PETS = [
     {n:'Нокіа3310',          s:'📱',r:'Міфічний',   m:1.32, c:'#bf40bf',drawKey:'nokia'},
 ];
 
+
+// ============================================================
+// ЩОДЕННІ ЗАВДАННЯ
+// ============================================================
+const DAILY_QUESTS_DEF = [
+    {id:'play5', icon:'🎮', title:'Зіграй 5 ігор',        type:'play',   need:5, reward:{type:'xp',amount:300}},
+    {id:'open1', icon:'📦', title:'Відкрий 1 кейс',        type:'case',   need:1, reward:{type:'bb',amount:100}},
+    {id:'win3',  icon:'🏆', title:'Виграй 3 рази поспіль', type:'winrow', need:3, reward:{type:'bb',amount:200}},
+];
+
+function todayKey(){ return new Date().toISOString().slice(0,10); }
+
+function getDailyState(){
+    if(!s.daily||s.daily.day!==todayKey())
+        s.daily={day:todayKey(),play:0,case:0,winrow:0,done:{}};
+    return s.daily;
+}
+
+function dailyProgress(type,amount=1){
+    const d=getDailyState();
+    if(type==='win')       d.winrow=(d.winrow||0)+1;
+    else if(type==='lose') d.winrow=0;
+    else                   d[type]=(d[type]||0)+amount;
+    DAILY_QUESTS_DEF.forEach(q=>{
+        if(d.done[q.id]) return;
+        const cur=q.type==='winrow'?(d.winrow||0):(d[q.type]||0);
+        if(cur>=q.need){
+            d.done[q.id]=true;
+            if(q.reward.type==='bb'){s.b+=q.reward.amount;showToast(`\u2705 Завдання виконано! +${q.reward.amount} BB`);}
+            if(q.reward.type==='xp'){s.x=(s.x||0)+q.reward.amount;checkPetLevelUp();showToast(`\u2705 Завдання виконано! +${q.reward.amount} XP`);}
+        }
+    });
+    save();
+    if(document.getElementById('v-main')?.style.display!=='none') renderDailyQuests();
+}
+
+function renderDailyQuests(){
+    const el=document.getElementById('daily-quests-card');
+    if(!el) return;
+    const d=getDailyState();
+    const now=new Date(),midnight=new Date(now);
+    midnight.setHours(24,0,0,0);
+    const diff=midnight-now;
+    const hh=Math.floor(diff/3600000),mm=Math.floor((diff%3600000)/60000);
+    const rows=DAILY_QUESTS_DEF.map(q=>{
+        const done=!!d.done[q.id];
+        const cur=Math.min(q.type==='winrow'?(d.winrow||0):(d[q.type]||0),q.need);
+        const pct=Math.round(cur/q.need*100);
+        const rwStr=q.reward.type==='bb'?`+${q.reward.amount} BB`:`+${q.reward.amount} XP`;
+        return `<div class="dq-row${done?' dq-done':''}">
+            <div class="dq-icon">${q.icon}</div>
+            <div class="dq-info">
+                <div class="dq-title-q">${q.title}</div>
+                <div class="dq-bar-wrap"><div class="dq-bar" style="width:${pct}%"></div></div>
+                <div class="dq-sub">${cur}/${q.need} &middot; <b style="color:var(--accent2)">${rwStr}</b></div>
+            </div>
+            ${done?'<div class="dq-check">\u2705</div>':''}
+        </div>`;
+    }).join('');
+    el.innerHTML=`<div class="dq-header">
+        <span class="dq-title-main">\uD83D\uDCCB Щоденні завдання</span>
+        <span class="dq-timer">\uD83D\uDD04 ${hh}г ${mm}хв</span>
+    </div>${rows}`;
+}
+
+// ============================================================
+// РЕФЕРАЛЬНА СИСТЕМА
+// ============================================================
+function getRefCode(){
+    if(!s.refCode){
+        s.refCode='BEAR'+String(myId).slice(-4)+Math.random().toString(36).slice(2,5).toUpperCase();
+        save();
+    }
+    return s.refCode;
+}
+
+window.applyRef=async function(){
+    const code=(document.getElementById('ref-inp')?.value||'').trim().toUpperCase();
+    if(!code) return;
+    if(code===getRefCode()) return showToast('\u274C Не можна використати власний код!');
+    if(s.refUsed) return showToast('\u274C Ти вже використав реферальний код!');
+    const snap=await db.ref('players').orderByChild('refCode').equalTo(code).once('value');
+    if(!snap.exists()) return showToast('\u274C Код не знайдено');
+    const [refUid]=Object.entries(snap.val())[0];
+    if(String(refUid)===String(myId)) return showToast('\u274C Не можна використати власний код!');
+    const bonus=250;
+    s.b+=bonus; s.refUsed=code; save();
+    db.ref('players/'+refUid+'/b').transaction(c=>(c||0)+bonus);
+    db.ref('players/'+refUid+'/refCount').transaction(c=>(c||0)+1);
+    showToast(`\uD83C\uDF89 +${bonus} BB тобі і другу!`);
+    renderSettings();
+};
+
+// ============================================================
+// ПОКЕДЕКС
+// ============================================================
+function getAllPetsForDex(){
+    const all=[];
+    const seen=new Set();
+    Object.values(CASES).forEach(c=>c.drop.forEach(p=>{
+        if(!seen.has(p.n)){all.push(p);seen.add(p.n);}
+    }));
+    // Додаємо всіх петів з інвентаря гравця (щоб адмін-пети теж відображались)
+    (s.inv||[]).forEach(p=>{
+        if(!seen.has(p.n)){all.push({...p,w:0});seen.add(p.n);}
+    });
+    return all;
+}
+
+let showingDex=false;
+window.togglePokedex=function(){showingDex=!showingDex;renderInv();};
+
+function renderPokedex(){
+    const all=getAllPetsForDex();
+    const owned=new Set(s.inv.map(p=>p.n));
+    const byRarity={};
+    all.forEach(p=>{if(!byRarity[p.r])byRarity[p.r]=[];byRarity[p.r].push(p);});
+    const rarityOrder=['Звичайний','Незвичайний','Рідкісний','Епічний','Легендарний','Міфічний','Смехуятина'];
+    const total=all.length,gotCount=all.filter(p=>owned.has(p.n)).length;
+    let h=`<button class="btn-s" style="width:100%;margin-bottom:12px" onclick="togglePokedex()">\u2190 Назад до інвентаря</button>
+    <div style="text-align:center;margin-bottom:12px;font-size:13px;color:var(--muted);font-weight:700">${gotCount} / ${total} петів зібрано</div>`;
+    rarityOrder.forEach(rar=>{
+        if(!byRarity[rar]) return;
+        h+=`<div style="font-size:9px;font-weight:700;letter-spacing:1px;color:${RARITY_GLOW[rar]||'var(--muted)'};text-transform:uppercase;margin:10px 0 6px">${rar}</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:4px">`;
+        byRarity[rar].forEach(p=>{
+            const have=owned.has(p.n);
+            const imgSrc=getPetImageSrc(p);
+            const img=imgSrc.type==='img'
+                ?`<img src="${imgSrc.src}" style="width:36px;height:36px;object-fit:contain;${have?'':'filter:grayscale(1) opacity(.3)'}">`
+                :`<span style="font-size:26px;${have?'':'filter:grayscale(1) opacity(.3)'}">${p.s}</span>`;
+            h+=`<div style="background:${have?p.c+'18':'rgba(255,255,255,.03)'};border:1px solid ${have?p.c+'44':'rgba(255,255,255,.06)'};border-radius:10px;padding:8px 4px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:3px">
+                ${img}
+                <div style="font-size:9px;font-weight:700;color:${have?p.c:'var(--muted)'};line-height:1.2">${p.n}</div>
+                ${have?`<div style="font-size:8px;color:var(--muted)">x${p.m.toFixed(2)}</div>`:''}
+            </div>`;
+        });
+        h+=`</div>`;
+    });
+    h+=`<div class="glass" style="margin-top:12px"><div class="card-title">\uD83C\uDF81 Бонуси за повну колекцію</div>`;
+    rarityOrder.forEach(rar=>{
+        if(!byRarity[rar]) return;
+        const cnt=byRarity[rar].length,got=byRarity[rar].filter(p=>owned.has(p.n)).length;
+        const full=got===cnt,bonus=Math.round(cnt*50);
+        h+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.05)">
+            <span style="font-size:12px;color:${RARITY_GLOW[rar]||'var(--muted)'}">${rar} (${got}/${cnt})</span>
+            <span style="font-size:11px;font-weight:700;color:${full?'var(--success)':'var(--muted)'}">+${bonus} BB ${full?'\u2705':'\uD83D\uDD12'}</span>
+        </div>`;
+    });
+    h+=`</div>`;
+    return h;
+}
+
+// ============================================================
+// ПІДПИСКИ НА КАНАЛИ
+// ============================================================
+window.renderChannels=async function(){
+    const el=document.getElementById('channels-wrap');
+    if(!el) return;
+    const snap=await db.ref('channels').once('value');
+    const channels=snap.val()||{};
+    if(!Object.keys(channels).length){
+        el.innerHTML=`<div style="text-align:center;color:var(--muted);padding:16px;font-size:13px">Немає активних підписок</div>`;
+        return;
+    }
+    const claimed=s.claimedChannels||{};
+    // Зберігаємо які посилання клікнув гравець (локально)
+    if(!window._chClicked) window._chClicked={};
+    el.innerHTML=Object.entries(channels).map(([id,ch])=>{
+        const done=!!claimed[id];
+        const rwStr=ch.rewardType==='bb'?`+${ch.reward} BB`:`+${ch.reward} XP`;
+        const clicked=!!window._chClicked[id];
+        return `<div class="sett-card" style="margin-bottom:8px;flex-direction:column;align-items:flex-start;gap:8px">
+            <div style="display:flex;align-items:center;gap:10px;width:100%">
+                <span style="font-size:22px">📢</span>
+                <div style="flex:1"><div style="font-weight:700;font-size:14px">${ch.name}</div>
+                <div style="font-size:11px;color:var(--muted)">Нагорода: <b style="color:var(--accent2)">${rwStr}</b></div></div>
+                ${done?'<span style="color:var(--success);font-size:13px;font-weight:700">✅</span>':''}
+            </div>
+            ${!done?`<div style="display:flex;gap:7px;width:100%">
+                <a href="${ch.url}" target="_blank" style="flex:1;padding:9px;border-radius:9px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:var(--text);font-size:12px;font-weight:700;text-align:center;text-decoration:none"
+                   onclick="window._chClicked['${id}']=Date.now();setTimeout(()=>window.renderChannels(),500)">🔗 Підписатись</a>
+                <button class="btn" style="flex:1;padding:9px;font-size:12px;font-family:inherit;${!clicked?'opacity:.4;cursor:not-allowed':''}"
+                   onclick="${clicked?`claimChannel('${id}')`:'showToast(\"⚠️ Спочатку натисни Підписатись!\")'}">${clicked?'✅ Отримати':'🔒 Отримати'}</button>
+            </div>
+            ${clicked?`<div style="font-size:10px;color:var(--success);width:100%">✔ Посилання відкрито — тепер натисни Отримати</div>`:
+            `<div style="font-size:10px;color:var(--muted);width:100%">⚠️ Спочатку підпишись на канал, потім натисни Отримати</div>`}
+            `:''}
+        </div>`;
+    }).join('');
+};
+
+window.claimChannel=async function(id){
+    if((s.claimedChannels||{})[id]) return showToast('Вже отримано!');
+    // Перевірка що гравець натиснув посилання
+    if(!window._chClicked||!window._chClicked[id]) return showToast('⚠️ Спочатку натисни кнопку Підписатись!');
+    const snap=await db.ref('channels/'+id).once('value');
+    const ch=snap.val();
+    if(!ch) return;
+    if(!s.claimedChannels) s.claimedChannels={};
+    s.claimedChannels[id]=true;
+    let rewardMsg='';
+    // Підтримка кількох нагород: rewards масив або одна нагорода
+    const rewards=ch.rewards||[{type:ch.rewardType||'bb',amount:ch.reward}];
+    rewards.forEach(rw=>{
+        if(rw.type==='bb'){s.b+=rw.amount;rewardMsg+=`+${rw.amount} BB `;}
+        else if(rw.type==='xp'){s.x=(s.x||0)+rw.amount;checkPetLevelUp();rewardMsg+=`+${rw.amount} XP `;}
+        else if(rw.type==='pet'&&rw.pet){const p={...rw.pet,id:Date.now(),lvl:1};s.inv.push(p);rewardMsg+=`${p.s||''}${p.n} `;}
+    });
+    save();
+    showToast(`🎉 Дякуємо за підписку! ${rewardMsg.trim()}`);
+    window.renderChannels();
+};
+
 // ============================================================
 // ТЕМИ
 // ============================================================
@@ -515,7 +729,7 @@ function applyLang(lang){
 // ============================================================
 // СТАН
 // ============================================================
-let s={b:0,x:0,r:1,name:myName,p:null,inv:[],v:6.0};
+let s={b:0,x:0,r:1,name:myName,p:null,inv:[],dbl:0,v:6.0};
 let currentShopTab='cases',currentAdminTab='balance';
 let adminInvUserId=null,adminInvUserName='';
 
@@ -523,7 +737,24 @@ let adminInvUserId=null,adminInvUserName='';
 let _splashFired = false;
 db.ref('players/'+myId).on('value',snap=>{
     const d=snap.val();
-    if(d){s=d;if(!s.inv)s.inv=[];}
+    if(d){
+        // Зберігаємо локальні дані що можуть бути новіші ніж у Firebase
+        const curDaily = s.daily;
+        const curAdoptPurchases = s.adoptPurchases;
+        s=d;
+        if(!s.inv)s.inv=[];
+        // Якщо локальний daily новіший (той самий день) — залишаємо його
+        if(curDaily && curDaily.day === todayKey() && (!s.daily || s.daily.day !== todayKey())){
+            s.daily = curDaily;
+        }
+        // Якщо локальний adoptPurchases має більше покупок — мерджимо (беремо максимум)
+        if(curAdoptPurchases){
+            if(!s.adoptPurchases) s.adoptPurchases={};
+            Object.entries(curAdoptPurchases).forEach(([id,qty])=>{
+                if((s.adoptPurchases[id]||0) < qty) s.adoptPurchases[id]=qty;
+            });
+        }
+    }
     else{db.ref('players/'+myId).set(s);}
     ren();
     if(!_splashFired){ _splashFired=true; if(window._splashDone) window._splashDone(); }
@@ -570,8 +801,12 @@ const RARITY_GLOW={
 
 function ren(){
     try {
-    // Баланс
+    // Баланс BB
     document.getElementById('bal-val').innerText = Number.isInteger(s.b) ? s.b : s.b.toFixed(2);
+
+    // Дублони
+    const dblEl = document.getElementById('dbl-val');
+    if(dblEl) dblEl.innerText = s.dbl || 0;
 
     const petLvl  = s.p ? (s.p.lvl||1) : 1;
     const needed  = xpForLevel(petLvl);
@@ -592,14 +827,11 @@ function ren(){
     const hudWrap = document.getElementById('p-hud-wrap');
 
     if (s.p) {
-        // HUD зображення
         if (hudWrap) {
             const imgSrc = getPetImageSrc(s.p);
             if (imgSrc.type === 'img') {
-                // Фото — без анімації руху
                 hudWrap.innerHTML = `<img src="${imgSrc.src}" style="width:52px;height:52px;object-fit:contain;">`;
             } else {
-                // Emoji — з анімацією float
                 hudWrap.innerHTML = `<span style="font-size:34px;animation:pet-float 3s ease-in-out infinite">${imgSrc.src}</span>`;
             }
         }
@@ -625,6 +857,9 @@ function ren(){
 
     if (ADMINS.includes(Number(myId)))
         document.getElementById('admin-tab').style.display = 'flex';
+
+    // Daily quests
+    renderDailyQuests();
     } catch(e) { console.error('ren() error:', e); }
 }
 
@@ -652,6 +887,7 @@ function renderShop(){
     const list=document.getElementById('shop-list');
     const tabs=`<div class="shop-tabs">
         <div class="s-tab ${currentShopTab==='cases'?'active':''}" onclick="setShopTab('cases')">${L('tabCases')}</div>
+        <div class="s-tab ${currentShopTab==='adoptme'?'active':''}" onclick="setShopTab('adoptme')">🐾 Adopt Me <span style="background:#ef4444;color:#fff;font-size:9px;font-weight:800;padding:1px 5px;border-radius:4px;margin-left:3px;vertical-align:middle">NEW</span></div>
         <div class="s-tab ${currentShopTab==='market'?'active':''}" onclick="setShopTab('market')">${L('tabMarket')}</div>
     </div>`;
     if(currentShopTab==='cases'){
@@ -676,6 +912,9 @@ function renderShop(){
             </div><button class="btn-buy" onclick="buyCase('${k}')">${c.p} BB</button></div>`;
         }
         list.innerHTML=h;
+    } else if(currentShopTab==='adoptme'){
+        list.innerHTML=tabs+`<div id="adoptme-list" class="card" style="text-align:center;color:var(--muted)">Завантаження...</div>`;
+        renderAdoptMe();
     } else {
         list.innerHTML=tabs+`<div id="m-list" class="card" style="text-align:center;color:var(--muted)">${L('loading')}</div>`;
         db.ref('market').once('value',snap=>{
@@ -715,6 +954,131 @@ function renderShop(){
         });
     }
 }
+// ============================================================
+// ADOPT ME SHOP
+// ============================================================
+async function renderAdoptMe(){
+    const el=document.getElementById('adoptme-list');
+    if(!el) return;
+    const snap=await db.ref('adoptme').once('value');
+    const items=snap.val()||{};
+    const keys=Object.keys(items);
+    if(!keys.length){
+        el.innerHTML=`<div style="text-align:center;padding:30px;color:var(--muted)">
+            <div style="font-size:40px;margin-bottom:10px">🐾</div>
+            <div style="font-weight:700">Магазин порожній</div>
+            <div style="font-size:12px;margin-top:6px">Незабаром тут з'являться товари!</div>
+        </div>`;
+        return;
+    }
+    const myPurchases=s.adoptPurchases||{};
+    let h='<div style="display:flex;flex-direction:column;gap:10px">';
+    keys.forEach(id=>{
+        const item=items[id];
+        if(!item||item.hidden) return;
+        const totalBought=item.totalBought||0;
+        const myBought=myPurchases[id]||0;
+        const limitPerUser=item.limitPerUser||0;
+        const limitTotal=item.limitTotal||0;
+        const soldOut=(limitTotal>0 && totalBought>=limitTotal);
+        const myLimitReached=(limitPerUser>0 && myBought>=limitPerUser);
+        const blocked=soldOut||myLimitReached;
+        let maxCanBuy=99;
+        if(limitPerUser>0) maxCanBuy=Math.min(maxCanBuy, limitPerUser-myBought);
+        if(limitTotal>0)   maxCanBuy=Math.min(maxCanBuy, limitTotal-totalBought);
+        if(maxCanBuy<1)    maxCanBuy=1;
+        const stockLine=limitTotal>0
+            ? `📦 ${soldOut?`<span style="color:var(--error)">Розпродано</span>`:`<span style="color:var(--accent2)">${totalBought}/${limitTotal} куплено</span>`}`
+            : `📦 <span style="color:var(--muted)">Необмежено</span>`;
+        const myLine=myBought>0
+            ? `&nbsp;·&nbsp;<span style="color:var(--accent)">Ти купив: <b>${myBought}</b>${limitPerUser>0?' / '+limitPerUser:''}</span>`
+            : (limitPerUser>0?`&nbsp;·&nbsp;<span style="color:var(--muted)">Ліміт: ${limitPerUser}</span>`:'');
+        h+=`<div style="background:rgba(255,255,255,.04);border:1px solid ${blocked?'rgba(255,255,255,.07)':'rgba(255,200,50,.18)'};border-radius:14px;padding:14px">
+            <div style="display:flex;align-items:flex-start;gap:12px">
+                <div style="font-size:38px;flex-shrink:0;line-height:1">${item.icon||'🎁'}</div>
+                <div style="flex:1;min-width:0">
+                    <div style="font-weight:800;font-size:14px;color:#fff;margin-bottom:3px">${item.name}</div>
+                    ${item.desc?`<div style="font-size:11px;color:var(--muted);margin-bottom:5px;line-height:1.4">${item.desc}</div>`:''}
+                    <div style="font-size:10px;font-weight:700;margin-bottom:8px">${stockLine}${myLine}</div>
+                    ${!blocked?`
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                        <div style="display:flex;align-items:center;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;overflow:hidden;flex-shrink:0">
+                            <button onclick="amQty('${id}',-1,${maxCanBuy})" style="background:none;border:none;color:#fff;font-size:20px;padding:4px 12px;cursor:pointer;line-height:1">−</button>
+                            <span id="am-qty-${id}" style="min-width:30px;text-align:center;font-weight:800;font-size:15px;color:#fff">1</span>
+                            <button onclick="amQty('${id}',1,${maxCanBuy})" style="background:none;border:none;color:#fff;font-size:20px;padding:4px 12px;cursor:pointer;line-height:1">+</button>
+                        </div>
+                        <div style="flex:1;min-width:60px">
+                            <div style="font-size:10px;color:var(--muted)">Разом:</div>
+                            <div id="am-total-${id}" style="font-weight:900;font-size:15px;color:var(--accent2)">${item.price} BB</div>
+                        </div>
+                        <button class="btn-buy" onclick="buyAdoptMe('${id}',${item.price},${maxCanBuy})">🛒 Купити</button>
+                    </div>`:`
+                    <div style="font-size:12px;font-weight:700;color:var(--error)">${soldOut?'❌ Розпродано':'❌ Досяг ліміту'}</div>`}
+                </div>
+            </div>
+        </div>`;
+    });
+    h+='</div>';
+    el.innerHTML=h;
+}
+
+window.amQty=function(id,delta,maxCanBuy){
+    maxCanBuy=maxCanBuy||99;
+    const el=document.getElementById('am-qty-'+id);
+    const totalEl=document.getElementById('am-total-'+id);
+    if(!el) return;
+    let qty=parseInt(el.textContent)||1;
+    qty=Math.max(1,Math.min(maxCanBuy,qty+delta));
+    el.textContent=qty;
+    if(totalEl){
+        const btn=document.querySelector(`[onclick*="buyAdoptMe('${id}'"]`);
+        if(btn){
+            const m=btn.getAttribute('onclick').match(/buyAdoptMe\('[^']+',(\d+)/);
+            if(m) totalEl.textContent=(parseInt(m[1])*qty)+' BB';
+        }
+    }
+};
+
+window.buyAdoptMe=async function(id,priceArg,maxCanBuy){
+    const qtyEl=document.getElementById('am-qty-'+id);
+    const qty=qtyEl?Math.max(1,parseInt(qtyEl.textContent)||1):1;
+    const snap=await db.ref('adoptme/'+id).once('value');
+    const item=snap.val();
+    if(!item) return showToast('❌ Товар не знайдено');
+    const myPurchases=s.adoptPurchases||{};
+    const myBought=myPurchases[id]||0;
+    const totalBought=item.totalBought||0;
+    const limitPerUser=item.limitPerUser||0;
+    const limitTotal=item.limitTotal||0;
+    const totalCost=item.price*qty;
+    if(limitPerUser>0 && myBought>=limitPerUser) return showToast('❌ Ти вже досяг ліміту покупок');
+    if(limitTotal>0 && totalBought>=limitTotal)  return showToast('❌ Товар розпродано');
+    if(limitPerUser>0 && myBought+qty>limitPerUser) return showToast(`❌ Можеш купити ще лише ${limitPerUser-myBought}`);
+    if(limitTotal>0 && totalBought+qty>limitTotal)  return showToast(`❌ Залишилось лише ${limitTotal-totalBought} шт.`);
+    if(s.b<totalCost) return showToast(`❌ Мало BB! Потрібно ${totalCost} BB`);
+    s.b-=totalCost;
+    if(!s.adoptPurchases) s.adoptPurchases={};
+    s.adoptPurchases[id]=(s.adoptPurchases[id]||0)+qty;
+    save();
+    db.ref('adoptme/'+id+'/totalBought').set(totalBought+qty);
+    const orderRef=db.ref('adoptorders').push();
+    const order={orderId:orderRef.key,itemId:id,itemName:item.name,itemIcon:item.icon||'🎁',price:item.price,qty,totalCost,buyerId:myId,buyerName:myName,status:'pending',createdAt:Date.now()};
+    orderRef.set(order);
+    ADMINS.forEach(adminId=>{
+        db.ref('adminNotifs/'+adminId).push({type:'adoptorder',msg:`🛒 ${myName} купив: ${item.icon||'🎁'} ${item.name} x${qty} за ${totalCost} BB`,orderId:orderRef.key,buyerName:myName,buyerId:myId,itemName:item.name,qty,read:false,createdAt:Date.now()});
+    });
+    showToast(`✅ Куплено ${qty}x ${item.icon||'🎁'} ${item.name}! Очікуй видачі від адміна`);
+    renderAdoptMe();
+    ren();
+};
+window.adminDeliverOrder=async function(orderId){
+    if(!orderId||orderId==='undefined'){return showToast('❌ Помилка: ID замовлення не знайдено');}
+    await db.ref('adoptorders/'+orderId+'/status').set('delivered');
+    showToast('✅ Позначено як видано!');
+    loadAdmin();
+};
+
+
 window.cancelMarketLot=lotId=>{
     db.ref('market/'+lotId).once('value',snap=>{
         const lot=snap.val();
@@ -753,21 +1117,27 @@ function renderInv(){
     const el=document.getElementById('inv-list');
     const countEl=document.getElementById('inv-count');
     if(countEl) countEl.textContent=s.inv.length ? `${s.inv.length} ${L('invCountLabel')}` : '';
+
+    // Pokédex mode
+    if(showingDex){ el.innerHTML=renderPokedex(); return; }
+
+    // Pokédex button
+    const dexBtn=`<button class="btn-dex" onclick="togglePokedex()">📖 Покедекс</button>`;
+
     if(!s.inv||!s.inv.length){
-        el.innerHTML=`<div class="inv-empty">
+        el.innerHTML=dexBtn+`<div class="inv-empty">
             <div style="font-size:52px;margin-bottom:12px">🥚</div>
             <div style="font-weight:700;font-size:15px">${L('invEmpty')}</div>
             <div style="font-size:12px;opacity:.6;margin-top:4px">${L('invEmptySub')}</div>
         </div>`;
         return;
     }
-    let h='';
+    let h=dexBtn;
     s.inv.forEach((p,i)=>{
         const eq=s.p&&s.p.id===p.id;
         const cid=`pet-vis-${i}`;
         const pvl=p.lvl||1, pxp=s.p&&s.p.id===p.id?s.x:0;
         const pct=eq?Math.min((pxp/xpForLevel(pvl))*100,100):0;
-        // Quick sell price = base multiplier * 50
         const qsPrice = Math.floor(p.m * 50);
         h+=`<div class="pet-card${eq?' pet-eq':''}">
             <div class="pet-stripe" style="background:${p.c}"></div>
@@ -1037,16 +1407,23 @@ function openCaseAnimation(win, onComplete) {
 function buyCase(k){
     const c=CASES[k];
     if(s.b<c.p)return alert('Мало BB!');
-    s.b-=c.p; save();
 
     // Pick winner
     let rand=Math.random()*100, win=null, cur=0;
     for(const p of c.drop){cur+=p.w;if(rand<=cur){win={...p};break;}}
     if(!win) win={...c.drop[c.drop.length-1]};
 
+    // Знімаємо гроші та ОДРАЗУ додаємо пета в інвентар (до анімації!)
+    // Це запобігає втраті пета через Firebase listener
+    win.id=Date.now(); win.lvl=1;
+    s.b-=c.p;
+    s.inv.push(win);
+    dailyProgress('case');
+    save();
+
     openCaseAnimation(win, ()=>{
-        win.id=Date.now(); win.lvl=1;
-        s.inv.push(win); save();
+        // Пет вже в інвентарі, просто оновлюємо UI
+        ren();
     });
 }
 window.buyCase=buyCase;
@@ -1107,8 +1484,8 @@ window.play=()=>{
 
 function res(win,bt,m,msg){
     const bon=s.p?s.p.m:1;
-    if(win){const w=(bt*m-bt)*bon;s.b+=w;s.x+=Math.floor(bt/2);document.getElementById('g-stat').innerHTML=`<span style="color:var(--success)">+${w.toFixed(2)} BB</span><br><small>${msg}</small>`;checkPetLevelUp();}
-    else{s.b-=bt;document.getElementById('g-stat').innerHTML=`<span style="color:var(--error)">-${bt.toFixed(2)} BB</span><br><small>${msg}</small>`;}
+    if(win){const w=(bt*m-bt)*bon;s.b+=w;s.x+=Math.floor(bt/2);document.getElementById('g-stat').innerHTML=`<span style="color:var(--success)">+${w.toFixed(2)} BB</span><br><small>${msg}</small>`;checkPetLevelUp();dailyProgress('win');dailyProgress('play');}
+    else{s.b-=bt;document.getElementById('g-stat').innerHTML=`<span style="color:var(--error)">-${bt.toFixed(2)} BB</span><br><small>${msg}</small>`;dailyProgress('lose');dailyProgress('play');}
     save();
 }
 
@@ -1159,13 +1536,158 @@ function loadAdmin(){
     if(currentAdminTab==='inv'&&adminInvUserId){loadAdminUserInv(adminInvUserId,adminInvUserName);return;}
 
     const makeTabs=()=>`<div class="admin-tabs">
-        <div class="a-tab ${currentAdminTab==='stats'?'active':''}"  onclick="setAdminTab('stats')">📊 Стат</div>
-        <div class="a-tab ${currentAdminTab==='balance'?'active':''}" onclick="setAdminTab('balance')">💰 BB</div>
-        <div class="a-tab ${currentAdminTab==='inv'?'active':''}"    onclick="setAdminTab('inv')">🐾 Пети</div>
-        <div class="a-tab ${currentAdminTab==='promo'?'active':''}"  onclick="setAdminTab('promo')">🎟 Промо</div>
+        <div class="a-tab ${currentAdminTab==='stats'?'active':''}"     onclick="setAdminTab('stats')">📊 Стат</div>
+        <div class="a-tab ${currentAdminTab==='balance'?'active':''}"   onclick="setAdminTab('balance')">💰 BB</div>
+        <div class="a-tab ${currentAdminTab==='inv'?'active':''}"       onclick="setAdminTab('inv')">🐾 Пети</div>
+        <div class="a-tab ${currentAdminTab==='promo'?'active':''}"     onclick="setAdminTab('promo')">🎟 Промо</div>
+        <div class="a-tab ${currentAdminTab==='channels'?'active':''}"  onclick="setAdminTab('channels')">📢</div>
+        <div class="a-tab ${currentAdminTab==='adoptme'?'active':''}"   onclick="setAdminTab('adoptme')">🐾 AM</div>
+        <div class="a-tab ${currentAdminTab==='orders'?'active':''}"    onclick="setAdminTab('orders')" id="admin-orders-tab">📬 <span id="admin-orders-badge" style="display:none;background:#ef4444;color:#fff;font-size:8px;padding:1px 4px;border-radius:4px;margin-left:2px">!</span></div>
     </div>`;
 
-    // ── ПРОМОКОДИ ──
+    // ── КАНАЛИ ──
+    if(currentAdminTab==='channels'){
+        db.ref('channels').once('value',snap=>{
+            const chs=snap.val()||{};
+            let rows='';
+            Object.entries(chs).forEach(([id,ch])=>{
+                rows+=`<div class="admin-card" style="padding:12px">
+                    <div style="display:flex;justify-content:space-between;align-items:center">
+                        <div>
+                            <div style="font-weight:700;font-size:14px;color:var(--text)">${ch.name}</div>
+                            <div style="font-size:11px;color:var(--muted);margin-top:2px">${ch.url} · ${ch.rewardType==='bb'?'+'+ch.reward+' BB':'+'+ch.reward+' XP'}</div>
+                        </div>
+                        <button class="btn-ctrl b-sub" style="padding:7px 10px" onclick="db.ref('channels/${id}').remove().then(()=>{showToast('🗑 Видалено');loadAdmin();})">🗑</button>
+                    </div>
+                </div>`;
+            });
+            document.getElementById('admin-list').innerHTML=makeTabs()+`
+            <div class="admin-card">
+                <div class="card-title">➕ Додати канал</div>
+                <input type="text" id="ch-name" placeholder="Назва каналу" style="margin-bottom:8px">
+                <input type="text" id="ch-url"  placeholder="https://t.me/канал" style="margin-bottom:8px">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+                    <input type="number" id="ch-reward-bb" placeholder="💰 BB (0 = не давати)" style="margin:0">
+                    <input type="number" id="ch-reward-xp" placeholder="⭐ XP (0 = не давати)" style="margin:0">
+                </div>
+                <div style="font-size:10px;color:var(--muted);margin-bottom:8px">Можна одночасно дати і BB і XP. Залиш 0 якщо не потрібно.</div>
+                <button class="btn" onclick="adminAddChannel()">✅ Додати</button>
+            </div>
+            <div style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.5px;margin:14px 0 8px">АКТИВНІ КАНАЛИ (${Object.keys(chs).length})</div>
+            ${rows||'<div style="text-align:center;color:var(--muted);padding:20px;font-size:13px">Немає каналів</div>'}`;
+        });
+        return;
+    }
+    // ── ADOPT ME УПРАВЛІННЯ ──
+    if(currentAdminTab==='adoptme'){
+        db.ref('adoptme').once('value',snap=>{
+            const items=snap.val()||{};
+            let rows='';
+            Object.entries(items).forEach(([id,item])=>{
+                // Іконка може бути URL — показуємо як img якщо починається з http
+                const isUrl=item.icon&&(item.icon.startsWith('http')||item.icon.startsWith('/'));
+                const iconPreview=isUrl
+                    ? `<img src="${item.icon}" style="width:40px;height:40px;object-fit:contain;border-radius:6px;background:rgba(255,255,255,.05)">`
+                    : `<span style="font-size:32px">${item.icon||'🎁'}</span>`;
+                rows+=`<div class="admin-card" style="padding:12px" id="am-card-${id}">
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+                        ${iconPreview}
+                        <div style="flex:1;min-width:0">
+                            <div style="font-weight:700;font-size:13px">${item.name}</div>
+                            <div style="font-size:11px;color:var(--muted)">${item.price} BB · куплено: ${item.totalBought||0}${item.limitTotal>0?' / '+item.limitTotal:''}${item.limitPerUser>0?' · ліміт/особу: '+item.limitPerUser:''}</div>
+                            ${isUrl?`<div style="font-size:9px;color:var(--error);margin-top:2px">⚠️ Іконка — посилання (може бути великою)</div>`:''}
+                        </div>
+                        <div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0">
+                            <button class="btn-ctrl" style="background:#6366f1;padding:6px 10px;font-size:11px" onclick="adminEditAdoptItem('${id}')">✏️ Ред.</button>
+                            <button class="btn-ctrl" style="background:${item.hidden?'#374151':'#059669'};padding:6px 10px;font-size:11px" onclick="adminToggleAdoptItem('${id}',${!item.hidden})">${item.hidden?'👁':'🙈'}</button>
+                            <button class="btn-ctrl b-sub" style="padding:6px 10px" onclick="adminDeleteAdoptItem('${id}')">🗑</button>
+                        </div>
+                    </div>
+                    <div id="am-edit-${id}" style="display:none;border-top:1px solid rgba(255,255,255,.08);padding-top:10px;margin-top:4px">
+                        <div style="font-size:10px;color:var(--accent);font-weight:700;margin-bottom:8px">✏️ РЕДАГУВАННЯ</div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+                            <input type="text" id="am-edit-icon-${id}" placeholder="Іконка (emoji або URL)" value="${item.icon||''}" style="margin:0;font-size:13px">
+                            <input type="number" id="am-edit-price-${id}" placeholder="Ціна BB" value="${item.price||0}" style="margin:0">
+                        </div>
+                        <input type="text" id="am-edit-name-${id}" placeholder="Назва" value="${item.name||''}" style="margin-bottom:8px">
+                        <input type="text" id="am-edit-desc-${id}" placeholder="Опис" value="${item.desc||''}" style="margin-bottom:8px">
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+                            <input type="number" id="am-edit-lpu-${id}" placeholder="Ліміт/особу (0=∞)" value="${item.limitPerUser||0}" style="margin:0">
+                            <input type="number" id="am-edit-lt-${id}" placeholder="Ліміт всього (0=∞)" value="${item.limitTotal||0}" style="margin:0">
+                        </div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                            <button class="btn" style="margin:0" onclick="adminSaveAdoptItem('${id}')">💾 Зберегти</button>
+                            <button class="btn-s" onclick="document.getElementById('am-edit-${id}').style.display='none'">✕ Скасувати</button>
+                        </div>
+                    </div>
+                </div>`;
+            });
+            document.getElementById('admin-list').innerHTML=makeTabs()+`
+            <div class="admin-card">
+                <div class="card-title">➕ Додати товар Adopt Me</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+                    <input type="text" id="am-icon" placeholder="Іконка (emoji, напр. 🐶)" style="margin:0;font-size:20px">
+                    <input type="number" id="am-price" placeholder="Ціна BB" style="margin:0">
+                </div>
+                <input type="text" id="am-name" placeholder="Назва товару" style="margin-bottom:8px">
+                <input type="text" id="am-desc" placeholder="Опис (необов'язково)" style="margin-bottom:8px">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+                    <input type="number" id="am-limit-user" placeholder="Ліміт на 1 особу (0=∞)" style="margin:0" value="0">
+                    <input type="number" id="am-limit-total" placeholder="Ліміт всього (0=∞)" style="margin:0" value="0">
+                </div>
+                <button class="btn" onclick="adminAddAdoptItem()">✅ Додати товар</button>
+            </div>
+            <div style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.5px;margin:14px 0 8px">ТОВАРИ (${Object.keys(items).length})</div>
+            ${rows||'<div style="text-align:center;color:var(--muted);padding:20px;font-size:13px">Немає товарів</div>'}`;
+        });
+        return;
+    }
+    // ── ЗАМОВЛЕННЯ ADOPT ME ──
+    if(currentAdminTab==='orders'){
+        db.ref('adoptorders').orderByChild('createdAt').once('value',snap=>{
+            const orders=[];
+            // Беремо KEY як orderId — val() може не мати orderId якщо запис старий
+            snap.forEach(c=>{
+                const v=c.val();
+                if(v) orders.unshift({...v, orderId: c.key});
+            });
+            const pending=orders.filter(o=>o.status==='pending');
+            const delivered=orders.filter(o=>o.status==='delivered');
+            // Позначаємо нотифікації як прочитані
+            db.ref('adminNotifs/'+myId).once('value',ns=>{
+                if(ns.val()) ns.forEach(n=>{if(n.val()&&!n.val().read) db.ref('adminNotifs/'+myId+'/'+n.key+'/read').set(true);});
+            });
+            const renderOrder=(o,isDone)=>`<div class="admin-card" style="padding:12px;${isDone?'opacity:.55':'border-left:3px solid var(--accent)'}">
+                <div style="display:flex;align-items:center;gap:10px">
+                    <span style="font-size:26px">${o.itemIcon||'🎁'}</span>
+                    <div style="flex:1;min-width:0">
+                        <div style="font-weight:700;font-size:13px">${o.itemName}${(o.qty&&o.qty>1)?` <span style="color:var(--accent2)">x${o.qty}</span>`:''}</div>
+                        <div style="font-size:11px;color:var(--muted)">👤 <b>${o.buyerName}</b> · ID: <span style="user-select:all">${o.buyerId}</span></div>
+                        <div style="font-size:11px;color:var(--accent2);font-weight:700">${o.totalCost||o.price} BB</div>
+                        <div style="font-size:10px;color:var(--muted)">${new Date(o.createdAt).toLocaleString('uk')}</div>
+                    </div>
+                    ${!isDone
+                        ?`<button class="btn-ctrl b-add" style="padding:8px 10px;font-size:11px;white-space:nowrap" onclick="adminDeliverOrder('${o.orderId}')">✅ Видано</button>`
+                        :`<span style="color:var(--success);font-size:20px">✅</span>`
+                    }
+                </div>
+            </div>`;
+            let h=makeTabs();
+            h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                <div style="font-size:10px;color:var(--error);font-weight:700;letter-spacing:.5px">⏳ ОЧІКУЮТЬ ВИДАЧІ (${pending.length})</div>
+                <button class="btn-s" style="font-size:10px;padding:5px 10px" onclick="loadAdmin()">🔄 Оновити</button>
+            </div>`;
+            h+=pending.length
+                ? pending.map(o=>renderOrder(o,false)).join('')
+                : `<div class="admin-card" style="text-align:center;color:var(--muted);padding:16px">Нових замовлень немає 🎉</div>`;
+            if(delivered.length){
+                h+=`<div style="font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.5px;margin:14px 0 8px">✅ ВИКОНАНІ (${delivered.length})</div>`;
+                h+=delivered.slice(0,30).map(o=>renderOrder(o,true)).join('');
+            }
+            document.getElementById('admin-list').innerHTML=h;
+        });
+        return;
+    }
     if(currentAdminTab==='promo'){
         db.ref('promo').once('value',snap=>{
             const codes=snap.val()||{};
@@ -1196,7 +1718,7 @@ function loadAdmin(){
                     <button id="pt-case" class="btn-s promo-type-btn" onclick="setPromoType('case')">📦 Кейс</button>
                 </div>
                 <div id="promo-bb-inp">
-                    <input type="number" id="promo-amount" placeholder="Кількість BB" style="margin-bottom:8px">
+                    <input type="number" id="promo-amount" placeholder="Кількість BB (0 = не давати)" style="margin-bottom:8px">
                 </div>
                 <div id="promo-pet-inp" style="display:none">
                     <select id="promo-pet-sel" style="margin-bottom:8px">
@@ -1209,6 +1731,7 @@ function loadAdmin(){
                     </select>
                     <input type="number" id="promo-case-count" placeholder="Кількість кейсів" value="1" style="margin-bottom:8px">
                 </div>
+                <div style="font-size:10px;color:var(--muted);margin-bottom:8px">💡 Для типу BB — можна одночасно дати і пета: переключись між типами, але BB + Пет комбінується автоматично якщо ввести суму > 0</div>
                 <input type="number" id="promo-uses" placeholder="Макс. активацій (0 = необмежено)" style="margin-bottom:10px" value="1">
                 <button class="btn" onclick="adminCreatePromo()">✅ Створити промокод</button>
             </div>
@@ -1256,21 +1779,29 @@ function loadAdmin(){
 
         // ── BB / ПЕТИ+ІНВ ──
         let h=makeTabs();
-        players.forEach(({uid,name,b,inv,p:activePet})=>{
-            b=b||0; inv=inv||[];
+        players.forEach(({uid,name,b,dbl,inv,p:activePet})=>{
+            b=b||0; dbl=dbl||0; inv=inv||[];
             h+=`<div class="admin-card">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
                     <div>
                         <b style="font-size:14px">${name||L('anon')}</b>
                         ${activePet?`<span style="font-size:11px;color:var(--muted);margin-left:6px">${activePet.s||''}</span>`:''}
                     </div>
-                    <span style="color:var(--accent2);font-weight:700;font-size:14px">${b.toFixed(0)} BB</span>
+                    <div style="text-align:right">
+                        <div style="color:var(--accent2);font-weight:700;font-size:14px">${b.toFixed(0)} BB</div>
+                        ${dbl>0?`<div style="color:#67e8f9;font-weight:700;font-size:11px">⚓ ${dbl} дубл.</div>`:''}
+                    </div>
                 </div>`;
             if(currentAdminTab==='balance'){
                 h+=`<div class="admin-ctrl-grid">
-                    <button class="btn-ctrl b-add" onclick="mathB('${uid}','add')">＋ Додати</button>
-                    <button class="btn-ctrl b-sub" onclick="mathB('${uid}','sub')">－ Забрати</button>
-                    <button class="btn-ctrl b-set" onclick="mathB('${uid}','set')">Задати</button>
+                    <button class="btn-ctrl b-add" onclick="mathB('${uid}','add','bb')">＋ BB</button>
+                    <button class="btn-ctrl b-sub" onclick="mathB('${uid}','sub','bb')">－ BB</button>
+                    <button class="btn-ctrl b-set" onclick="mathB('${uid}','set','bb')">= BB</button>
+                </div>
+                <div class="admin-ctrl-grid" style="margin-top:6px">
+                    <button class="btn-ctrl" style="background:rgba(6,182,212,.2);border-color:#06b6d4;color:#67e8f9" onclick="mathB('${uid}','add','dbl')">＋ ⚓</button>
+                    <button class="btn-ctrl" style="background:rgba(6,182,212,.1);border-color:#06b6d4;color:#67e8f9" onclick="mathB('${uid}','sub','dbl')">－ ⚓</button>
+                    <button class="btn-ctrl" style="background:rgba(6,182,212,.1);border-color:#06b6d4;color:#67e8f9" onclick="mathB('${uid}','set','dbl')">= ⚓</button>
                 </div>`;
             } else {
                 // Пети + інвентар в одній вкладці
@@ -1321,7 +1852,17 @@ window.adminCreatePromo=()=>{
         const idx=parseInt(document.getElementById('promo-pet-sel').value);
         const pets=getAllPets();
         if(!pets[idx]) return alert('Обери пета!');
-        reward={type:'pet',pet:{...pets[idx],id:Date.now(),lvl:1}};
+        // Перевіряємо чи є і BB сума
+        const bbAmt=parseFloat(document.getElementById('promo-amount')?.value||'0');
+        if(bbAmt>0){
+            // Комбінована: пет + BB
+            reward={type:'multi',rewards:[
+                {type:'pet',pet:{...pets[idx],id:Date.now(),lvl:1}},
+                {type:'bb',amount:bbAmt}
+            ]};
+        } else {
+            reward={type:'pet',pet:{...pets[idx],id:Date.now(),lvl:1}};
+        }
     } else if(currentPromoType==='case'){
         const caseKey=document.getElementById('promo-case-sel').value;
         const count=parseInt(document.getElementById('promo-case-count').value)||1;
@@ -1367,47 +1908,47 @@ window.applyPromo=()=>{
         // Застосовуємо нагороду
         db.ref('promo/'+code+'/used').set(used+1);
         db.ref('promo/'+code+'/usedBy').set([...usedBy,String(myId)]);
-        if(data.type==='bb'){
-            s.b+=data.amount; save(); ren();
-            showToast(`🎉 +${data.amount} BB! Промокод активовано`);
-        } else if(data.type==='pet'&&data.pet){
-            const pet={...data.pet,id:Date.now(),lvl:1};
-            s.inv.push(pet); save();
-            showToast(`🎉 ${pet.s||''} ${pet.n} отримано!`);
-        } else if(data.type==='case'&&data.caseKey){
-            const c=CASES[data.caseKey];
-            if(!c){showToast('❌ Кейс більше не доступний');return;}
-            const count=data.count||1;
-            document.getElementById('promo-inp').value='';
-            // Відкриваємо кейси з анімацією по одному
-            let opened=0;
-            function openNext(){
-                if(opened>=count){
-                    renderSettings();
-                    showToast(`🎉 ${count}x ${c.n} відкрито!`);
-                    return;
-                }
-                let rand=Math.random()*100,win=null,cur=0;
-                for(const p of c.drop){cur+=p.w;if(rand<=cur){win={...p};break;}}
-                if(!win) win={...c.drop[c.drop.length-1]};
-                opened++;
-                openCaseAnimation(win,()=>{
+        document.getElementById('promo-inp').value='';
+
+        function applySingleReward(d,toastParts){
+            if(d.type==='bb'){
+                s.b+=d.amount; toastParts.push(`+${d.amount} BB`);
+            } else if(d.type==='pet'&&d.pet){
+                const pet={...d.pet,id:Date.now(),lvl:1};
+                s.inv.push(pet); toastParts.push(`${pet.s||''} ${pet.n}`);
+            } else if(d.type==='case'&&d.caseKey){
+                const c=CASES[d.caseKey];
+                if(!c){showToast('❌ Кейс більше не доступний');return;}
+                const count=d.count||1;
+                let opened=0;
+                function openNext(){
+                    if(opened>=count){renderSettings();showToast(`🎉 ${count}x ${c.n} відкрито!`);return;}
+                    let rand=Math.random()*100,win=null,cur2=0;
+                    for(const p of c.drop){cur2+=p.w;if(rand<=cur2){win={...p};break;}}
+                    if(!win) win={...c.drop[c.drop.length-1]};
+                    opened++;
                     win.id=Date.now()+opened; win.lvl=1;
                     s.inv.push(win); save();
-                    // After close button click — if more cases, open next
-                    const origClose=window.closeCase;
-                    if(opened<count){
-                        window.closeCase=()=>{
-                            origClose();
-                            window.closeCase=origClose;
-                            setTimeout(openNext,300);
-                        };
-                    }
-                });
+                    openCaseAnimation(win,()=>{
+                        ren();
+                        const origClose=window.closeCase;
+                        if(opened<count){
+                            window.closeCase=()=>{origClose();window.closeCase=origClose;setTimeout(openNext,300);};
+                        }
+                    });
+                }
+                openNext();
             }
-            openNext();
         }
-        document.getElementById('promo-inp').value='';
+
+        const toastParts=[];
+        if(data.type==='multi'&&Array.isArray(data.rewards)){
+            data.rewards.forEach(rw=>applySingleReward(rw,toastParts));
+        } else {
+            applySingleReward(data,toastParts);
+        }
+        save(); ren();
+        if(toastParts.length) showToast(`🎉 Промокод активовано! ${toastParts.join(' + ')}`);
         renderSettings();
     });
 };
@@ -1511,13 +2052,93 @@ window.adminAddPetLevel=(uid,idx,delta)=>{
         setTimeout(()=>loadAdminUserInv(uid,p.name||name),300);
     });
 };
-window.mathB=(id,type)=>{
-    let v=prompt('Сума:');if(!v||isNaN(v))return;v=Number(v);const ref=db.ref('players/'+id+'/b');
-    if(type==='add')ref.transaction(c=>(c||0)+v);else if(type==='sub')ref.transaction(c=>(c||0)-v);else ref.set(v);
+window.mathB=(id,type,currency='bb')=>{
+    const label=currency==='dbl'?'⚓ Дублони':'BB';
+    let v=prompt(`Сума (${label}):`);
+    if(!v||isNaN(v))return;
+    v=Number(v);
+    const field=currency==='dbl'?'dbl':'b';
+    const ref=db.ref('players/'+id+'/'+field);
+    if(type==='add')ref.transaction(c=>(c||0)+v);
+    else if(type==='sub')ref.transaction(c=>Math.max(0,(c||0)-v));
+    else ref.set(Math.max(0,v));
     setTimeout(loadAdmin,500);
 };
 // adminGivePet — alias для зворотньої сумісності
 window.adminGivePet=uid=>window.adminGivePetModal(uid,'');
+
+window.adminEditAdoptItem=(id)=>{
+    const editEl=document.getElementById('am-edit-'+id);
+    if(editEl) editEl.style.display=editEl.style.display==='none'?'block':'none';
+};
+window.adminSaveAdoptItem=(id)=>{
+    const icon=(document.getElementById('am-edit-icon-'+id)?.value||'🎁').trim();
+    const name=(document.getElementById('am-edit-name-'+id)?.value||'').trim();
+    const desc=(document.getElementById('am-edit-desc-'+id)?.value||'').trim();
+    const price=parseInt(document.getElementById('am-edit-price-'+id)?.value||'0');
+    const limitPerUser=parseInt(document.getElementById('am-edit-lpu-'+id)?.value||'0');
+    const limitTotal=parseInt(document.getElementById('am-edit-lt-'+id)?.value||'0');
+    if(!name||price<=0) return showToast('❌ Введи назву і ціну');
+    db.ref('adoptme/'+id).update({icon,name,desc,price,limitPerUser,limitTotal}).then(()=>{
+        showToast('✅ Збережено!');
+        loadAdmin();
+    });
+};
+window.adminAddAdoptItem=()=>{
+    const icon=(document.getElementById('am-icon')?.value||'🎁').trim();
+    const name=(document.getElementById('am-name')?.value||'').trim();
+    const desc=(document.getElementById('am-desc')?.value||'').trim();
+    const price=parseInt(document.getElementById('am-price')?.value||'0');
+    const limitPerUser=parseInt(document.getElementById('am-limit-user')?.value||'0');
+    const limitTotal=parseInt(document.getElementById('am-limit-total')?.value||'0');
+    if(!name||price<=0) return showToast('❌ Введи назву і ціну');
+    db.ref('adoptme').push({icon,name,desc,price,limitPerUser,limitTotal,totalBought:0,hidden:false,createdAt:Date.now()}).then(()=>{
+        showToast('✅ Товар додано!');
+        loadAdmin();
+    });
+};
+window.adminToggleAdoptItem=(id,visible)=>{
+    db.ref('adoptme/'+id+'/hidden').set(!visible).then(()=>{showToast(visible?'👁 Показано':'🙈 Сховано');loadAdmin();});
+};
+window.adminDeleteAdoptItem=(id)=>{
+    if(!confirm('Видалити товар?')) return;
+    db.ref('adoptme/'+id).remove().then(()=>{showToast('🗑 Видалено');loadAdmin();});
+};
+
+// ── Нотифікації для адмінів (бейдж на вкладці замовлень) ──
+function initAdminNotifs(){
+    if(!ADMINS.includes(Number(myId))) return;
+    db.ref('adminNotifs/'+myId).on('value',snap=>{
+        let unread=0;
+        if(snap.val()) snap.forEach(n=>{ if(!n.val().read) unread++; });
+        const badge=document.getElementById('admin-orders-badge');
+        if(badge){
+            badge.style.display=unread>0?'inline':'none';
+            badge.textContent=unread>9?'9+':unread||'!';
+        }
+    });
+}
+// Запускаємо після ініціалізації Firebase
+setTimeout(initAdminNotifs, 1500);
+
+
+window.adminAddChannel=()=>{
+    const name=(document.getElementById('ch-name')?.value||'').trim();
+    const url=(document.getElementById('ch-url')?.value||'').trim();
+    if(!name||!url) return showToast('❌ Заповни назву і посилання');
+    // Збираємо нагороди
+    const rewards=[];
+    const bb=parseInt(document.getElementById('ch-reward-bb')?.value||'0');
+    const xp=parseInt(document.getElementById('ch-reward-xp')?.value||'0');
+    if(bb>0) rewards.push({type:'bb',amount:bb});
+    if(xp>0) rewards.push({type:'xp',amount:xp});
+    if(!rewards.length) return showToast('❌ Додай хоча б одну нагороду (BB або XP)');
+    // Для сумісності зі старим кодом — зберігаємо і старий формат
+    db.ref('channels').push({name,url,rewardType:rewards[0].type,reward:rewards[0].amount,rewards}).then(()=>{
+        showToast('✅ Канал додано!');
+        loadAdmin();
+    });
+};
 
 // ============================================================
 // НАЛАШТУВАННЯ
@@ -1556,7 +2177,7 @@ function renderSettings(){
         <div class="glass">
             <div class="sett-section-title">${L('music')}</div>
             <div style="display:flex;gap:8px;margin-bottom:10px">
-                <button class="btn-s" style="flex:1;background:${musicEnabled?'rgba(232,121,160,.15)':'rgba(255,255,255,.04)'};border-color:${musicEnabled?'var(--accent)':'rgba(255,255,255,.12)'};color:${musicEnabled?'var(--accent)':'var(--muted)'}" onclick="toggleMusic()">
+                <button class="btn-s" style="flex:1;background:${musicEnabled?'rgba(var(--accent-rgb),.15)':'rgba(255,255,255,.04)'};border-color:${musicEnabled?'var(--accent)':'rgba(255,255,255,.12)'};color:${musicEnabled?'var(--accent)':'var(--muted)'}" onclick="toggleMusic()">
                     ${musicEnabled?'🔊 Увімк.':'🔇 Вимк.'}
                 </button>
                 <div style="flex:2;display:flex;align-items:center;font-size:12px;color:var(--muted);padding:0 8px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:8px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">
@@ -1566,12 +2187,34 @@ function renderSettings(){
             <div class="sett-list">${musicTracksHtml}</div>
         </div>
         <div class="glass">
+            <div class="sett-section-title">📢 Підписки на канали</div>
+            <div id="channels-wrap"><div style="color:var(--muted);font-size:12px;text-align:center;padding:12px">Завантаження...</div></div>
+        </div>
+        <div class="glass">
+            <div class="sett-section-title">👥 Реферальна система</div>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Твій реферальний код — поділись з другом. Обидва отримаєте <b style="color:var(--accent2)">+250 BB</b>!</div>
+            <div style="display:flex;gap:8px;margin-bottom:10px">
+                <div style="flex:1;padding:11px 14px;background:rgba(255,255,255,.04);border:1px solid var(--border-gold);border-radius:10px;font-size:15px;font-weight:800;color:var(--accent2);letter-spacing:1.5px;text-align:center">${getRefCode()}</div>
+                <button class="btn-s" onclick="if(navigator.clipboard)navigator.clipboard.writeText('${getRefCode()}').then(()=>showToast('✅ Скопійовано!'))">📋</button>
+            </div>
+            ${s.refUsed
+                ? `<div style="font-size:12px;color:var(--success);font-weight:700;text-align:center">✅ Ти вже активував код друга</div>`
+                : `<div style="display:flex;gap:8px">
+                    <input type="text" id="ref-inp" placeholder="Код друга..." style="flex:1;margin:0;text-transform:uppercase;letter-spacing:1px" oninput="this.value=this.value.toUpperCase()">
+                    <button class="btn" style="width:auto;padding:12px 16px;flex-shrink:0;font-size:13px" onclick="applyRef()">▶</button>
+                </div>`
+            }
+            <div style="margin-top:10px;font-size:11px;color:var(--muted)">Запрошено друзів: <b style="color:var(--accent2)">${s.refCount||0}</b></div>
+        </div>
+        <div class="glass">
             <div class="sett-section-title">🎟 ПРОМОКОД</div>
             <div style="display:flex;gap:8px">
                 <input type="text" id="promo-inp" placeholder="Введи промокод..." style="flex:1;margin:0;text-transform:uppercase;letter-spacing:1px" oninput="this.value=this.value.toUpperCase()">
-                <button class="btn-buy" style="padding:12px 16px;font-size:14px;flex-shrink:0" onclick="applyPromo()">▶</button>
+                <button class="btn" style="width:auto;padding:12px 16px;flex-shrink:0;font-size:13px" onclick="applyPromo()">▶</button>
             </div>
         </div>`;
+    // Load channels async
+    setTimeout(()=>window.renderChannels(), 50);
 }
 window.pickTheme=k=>{applyTheme(k);renderSettings();showToast(L('saved'));};
 window.pickLang=k=>{applyLang(k);renderSettings();showToast(L('saved'));};
